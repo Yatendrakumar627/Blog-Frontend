@@ -22,9 +22,16 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
-      const socketUrl = import.meta.env.VITE_API_URL
-        ? import.meta.env.VITE_API_URL.replace('/api', '')
-        : (import.meta.env.PROD ? 'https://blog-backend-chi-five.vercel.app' : 'http://localhost:5100');
+      const getSocketUrl = () => {
+        if (import.meta.env.VITE_API_URL) {
+          return import.meta.env.VITE_API_URL.replace('/api', '');
+        }
+        return import.meta.env.PROD
+          ? 'https://blog-backend-chi-five.vercel.app'
+          : 'http://localhost:5100';
+      };
+
+      const socketUrl = getSocketUrl();
 
       const newSocket = io(socketUrl, {
         withCredentials: true,
@@ -83,4 +90,3 @@ export const SocketProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
-
