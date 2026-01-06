@@ -1,23 +1,92 @@
-import axios from 'axios';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
+import useAuthStore from '../store/authStore';
+import { notifications } from '@mantine/notifications';
+import { IconMessage } from '@tabler/icons-react';
+import api from '../api/axios';
 
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://blog-backend-chi-five.vercel.app/api' : 'http://localhost:5100/api'),
-});
-});
+export const SocketContext = createContext();
 
-// Add a request interceptor to add the token to every request
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context;
+};
+
+export const SocketProvider = ({ children }) => {
+  const [socket, setSocket] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (user) {
+      const getSocketUrl = () => {
+        if (import.meta.env.VITE_API_URL) {
+          return import.meta.env.VITE_API_URL.replace('/api', '');
         }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+        return import.meta.env.PROD
+          ? 'https://blog-backend-chi-five.vercel.app'
+          : 'http://localhost:5100';
+      };
+
+      const socketUrl = getSocketUrl();
+
+      const newSocket = io(socketUrl, {
+        withCredentials: true,
+      });
+
+      newSocket.on('connect', () => {
+        console.log('Connected to server');
+        newSocket.emit('join', user._id);
+        fetchUnreadCount();
+      });
+
+      newSocket.on('new_message', (message) => {
+        // Only show notification if NOT on the chat page
+        if (window.location.pathname !== '/chat') {
+          notifications.show({
+            title: `Message from ${message.sender?.displayName || message.sender?.username}`,
+            message: message.text,
+            icon: <IconMessage size={16} />,
+            color: 'pink',
+            onClick: () => window.location.href = '/chat'
+          });
+          setUnreadCount(prev => prev + 1);
+        }
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('Disconnected from server');
+      });
+
+      const fetchUnreadCount = async () => {
+        try {
+          const { data } = await api.get('/chat/unread-count');
+          setUnreadCount(data.count);
+        } catch (error) {
+          console.error('Error fetching unread count:', error);
+        }
+      };
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.off('new_message');
+        newSocket.close();
+      };
+    } else {
+      if (socket) {
+        socket.close();
+        setSocket(null);
+      }
     }
-);
+  }, [user]);
 
-export default api;
-
+  return (
+    <SocketContext.Provider value={{ socket, unreadCount, setUnreadCount }}>
+      {children}
+    </SocketContext.Provider>
+  );
+};
