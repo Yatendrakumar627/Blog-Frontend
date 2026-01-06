@@ -1,1 +1,0 @@
-import{j as r,k as j,aj as a}from"./mantine-vendor-DsS3B64P.js";const f=({fullHeight:n=!1,centered:t=!1,size:x="md",type:s,height:d,...e})=>n?r.jsx(j,{h:"100vh",w:"100%",children:r.jsx(a,{size:"xl",type:s,...e})}):t?r.jsx(j,{w:"100%",py:"md",h:d,children:r.jsx(a,{size:x,type:s,...e})}):r.jsx(a,{size:x,type:s,...e});export{f as A};
