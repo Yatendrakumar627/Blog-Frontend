@@ -27,7 +27,7 @@ export const SocketProvider = ({ children }) => {
           return import.meta.env.VITE_API_URL.replace('/api', '');
         }
         return import.meta.env.PROD
-          ? 'https://blog-backend-chi-five.vercel.app'
+          ? 'https://blog-backend-eta-six.vercel.app/'
           : 'http://localhost:5100';
       };
 
@@ -90,3 +90,4 @@ export const SocketProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
+
