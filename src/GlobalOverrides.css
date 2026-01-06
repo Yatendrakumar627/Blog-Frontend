@@ -1,0 +1,28 @@
+/* Global Overrides for Mantine Components to replace invalid inline styles */
+
+/* Avatar Overrides */
+.mantine-Avatar-root {
+    width: var(--avatar-size) !important;
+    height: var(--avatar-size) !important;
+    min-width: var(--avatar-size) !important;
+    min-height: var(--avatar-size) !important;
+}
+
+/* Remove focus/active outlines for selected components */
+.mantine-Tabs-tab[data-active],
+.mantine-Tabs-tab:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}
+
+.mantine-UnstyledButton-root[data-active],
+.mantine-UnstyledButton-root:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}
+
+.mantine-ActionIcon-root[data-active],
+.mantine-ActionIcon-root:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}

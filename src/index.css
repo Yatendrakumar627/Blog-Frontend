@@ -1,0 +1,10 @@
+/* Cleaned for Mantine UI */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Dancing+Script:wght@400;700&display=swap');
+
+.blog-post-content {
+    line-height: 1.5;
+}
+
+.blog-post-content p {
+    margin-bottom: 8px;
+}
