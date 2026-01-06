@@ -5,7 +5,7 @@ const getBaseURL = () => {
         return import.meta.env.VITE_API_URL;
     }
     return import.meta.env.PROD
-        ? 'https://blog-backend-chi-five.vercel.app/api'
+        ? 'https://blog-backend-eta-six.vercel.app/'
         : 'http://localhost:5100/api';
 };
 
@@ -28,3 +28,4 @@ api.interceptors.request.use(
 );
 
 export default api;
+
