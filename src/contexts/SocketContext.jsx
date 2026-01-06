@@ -24,7 +24,7 @@ export const SocketProvider = ({ children }) => {
     if (user) {
       const socketUrl = import.meta.env.VITE_API_URL
         ? import.meta.env.VITE_API_URL.replace('/api', '')
-        : 'http://localhost:5100';
+        : (import.meta.env.PROD ? 'https://blog-backend-chi-five.vercel.app' : 'http://localhost:5100');
 
       const newSocket = io(socketUrl, {
         withCredentials: true,
@@ -83,3 +83,4 @@ export const SocketProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
+
