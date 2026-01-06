@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5100/api',
+    baseURL: import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://blog-backend-chi-five.vercel.app/api' : 'http://localhost:5100/api'),
+});
 });
 
 // Add a request interceptor to add the token to every request
@@ -19,3 +20,4 @@ api.interceptors.request.use(
 );
 
 export default api;
+
