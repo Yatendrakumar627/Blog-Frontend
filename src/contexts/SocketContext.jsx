@@ -23,12 +23,13 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       const getSocketUrl = () => {
-        if (import.meta.env.VITE_API_URL) {
-          return import.meta.env.VITE_API_URL.replace('/api', '');
+        let url = import.meta.env.VITE_API_URL;
+        if (!url) {
+          url = import.meta.env.PROD
+            ? 'https://blog-backend-eta-six.vercel.app'
+            : 'http://localhost:5100';
         }
-        return import.meta.env.PROD
-          ? 'https://blog-backend-eta-six.vercel.app/'
-          : 'http://localhost:5100';
+        return url.replace(/\/$/, '').replace('/api', '');
       };
 
       const socketUrl = getSocketUrl();
@@ -90,4 +91,3 @@ export const SocketProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
-
