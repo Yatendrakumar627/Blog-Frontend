@@ -1,12 +1,14 @@
 import axios from 'axios';
 
 const getBaseURL = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL;
+    let url = import.meta.env.VITE_API_URL;
+    if (!url) {
+        url = import.meta.env.PROD
+            ? 'https://blog-backend-eta-six.vercel.app'
+            : 'http://localhost:5100';
     }
-    return import.meta.env.PROD
-        ? 'https://blog-backend-eta-six.vercel.app/'
-        : 'http://localhost:5100/api';
+    // Ensure it ends with /api
+    return url.replace(/\/$/, '') + '/api';
 };
 
 const api = axios.create({
@@ -28,4 +30,3 @@ api.interceptors.request.use(
 );
 
 export default api;
-
