@@ -1,0 +1,63 @@
+/* Global Overrides for Mantine Components to replace invalid inline styles */
+
+/* Avatar Overrides */
+.mantine-Avatar-root {
+    width: var(--avatar-size) !important;
+    height: var(--avatar-size) !important;
+    min-width: var(--avatar-size) !important;
+    min-height: var(--avatar-size) !important;
+}
+
+/* Remove focus/active outlines for selected components */
+.mantine-Tabs-tab[data-active],
+.mantine-Tabs-tab:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}
+
+.mantine-UnstyledButton-root[data-active],
+.mantine-UnstyledButton-root:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}
+
+.mantine-ActionIcon-root[data-active],
+.mantine-ActionIcon-root:focus[data-active] {
+    outline: none;
+    box-shadow: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-button {
+    display: none;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    /* Very subtle transparency */
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+    /* Slightly more visible on hover */
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* For Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}

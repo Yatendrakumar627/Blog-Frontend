@@ -1,0 +1,28 @@
+/* Cleaned for Mantine UI */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Satisfy&family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;600;700&family=Montserrat:wght@300;400;600;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Cinzel:wght@400;700&family=Josefin+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+.blog-post-content {
+    line-height: 1.5;
+}
+
+.blog-post-content p {
+    margin-bottom: 8px;
+}
+
+/* Premium Color Font Effects */
+.color-font-gradient {
+    background: linear-gradient(45deg, #f06, #4a90e2, #9b59b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+.color-font-glow {
+    text-shadow: 0 0 10px rgba(74, 144, 226, 0.8), 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.color-font-neon {
+    color: #0ff;
+    text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff;
+}

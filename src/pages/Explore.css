@@ -1,0 +1,161 @@
+/* DatePickerInput Styles */
+.datePickerInput {
+    border: 1px solid transparent;
+    background-color: transparent;
+    /* Width will be handled by inline conditional styles as they depend on state */
+    padding-right: 8px;
+    padding-left: 40px;
+    color: var(--mantine-color-text);
+    cursor: pointer;
+    box-shadow: none;
+    font-weight: 400;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    touch-action: manipulation;
+}
+
+.datePickerInput:focus {
+    background-color: var(--mantine-color-default-hover);
+    box-shadow: 0 0 0 2px var(--mantine-primary-color-light);
+    outline: none;
+}
+
+.datePickerInput:hover {
+    background-color: var(--mantine-color-default-hover);
+    box-shadow: none;
+}
+
+.datePickerInput::placeholder {
+    color: var(--mantine-color-placeholder);
+    opacity: 0.6;
+}
+
+.datePickerRoot {
+    position: relative;
+    /* Width handled inline */
+}
+
+.datePickerSection {
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: auto;
+    padding-left: 8px;
+    margin-right: 8px;
+}
+
+.datePickerInputWrapper {
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.datePickerInputWrapper:hover {
+    background-color: var(--mantine-color-default-hover);
+}
+
+.datePickerInputWrapper[data-has-value="true"] {
+    background-color: var(--mantine-color-blue-light);
+}
+
+.datePickerInputWrapper[data-has-value="true"]:hover {
+    background-color: var(--mantine-color-blue-light-hover);
+}
+
+.datePickerDropdown {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 1000;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--mantine-color-default-border);
+    background-color: var(--mantine-color-body);
+    overflow: auto;
+}
+
+.datePickerCalendar {
+    border-radius: 12px;
+    box-shadow: none;
+    border: none;
+}
+
+.datePickerCalendarHeader {
+    background-color: transparent;
+    border-radius: 0;
+    border-bottom: 1px solid var(--mantine-color-default-border);
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.datePickerCalendarHeaderControl {
+    background-color: var(--mantine-color-default-hover);
+    border-radius: 8px;
+}
+
+.datePickerCalendarHeaderControl:hover {
+    background-color: var(--mantine-color-primary-hover);
+    transform: scale(1.05);
+}
+
+.datePickerWeekday {
+    font-weight: 600;
+    color: var(--mantine-color-dimmed);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.datePickerDay {
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    margin: 2px;
+}
+
+.datePickerDay:hover {
+    background-color: var(--mantine-color-primary-light);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.datePickerDay[data-selected] {
+    background-color: var(--mantine-color-blue-filled) !important;
+    color: white !important;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    transform: scale(1.05);
+}
+
+.datePickerDay[data-today] {
+    border-color: var(--mantine-color-blue-filled);
+    border-width: 2px;
+    background-color: var(--mantine-color-blue-light);
+}
+
+.datePickerDay[data-outside] {
+    color: var(--mantine-color-dimmed);
+    opacity: 0.4;
+}
+
+.datePickerDay[data-weekend] {
+    color: var(--mantine-color-red-6);
+}
+
+.datePickerMonth {
+    font-weight: 700;
+    color: var(--mantine-color-text);
+}
+
+.datePickerMonthRow:hover {
+    background-color: transparent;
+}
+
+.datePickerYearsList {
+    max-height: 200px;
+    overflow: auto;
+}
