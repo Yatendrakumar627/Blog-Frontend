@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 import {
     Container,
     Paper,
@@ -623,18 +627,44 @@ const Chat = () => {
                 setConversations(prev => prev.map(conv => ({
                     ...conv,
                     participants: conv.participants.map(participant =>
-                        participant._id === userId ? { ...participant, isOnline: true } : participant
+                        participant._id === userId ? { ...participant, isOnline: true, lastSeen: null } : participant
                     )
                 })));
+
+                // Update active conversation if the user is a participant
+                setActiveConversation(prev => {
+                    if (!prev) return prev;
+                    const isParticipant = prev.participants.some(p => p._id === userId);
+                    if (!isParticipant) return prev;
+                    return {
+                        ...prev,
+                        participants: prev.participants.map(p =>
+                            p._id === userId ? { ...p, isOnline: true, lastSeen: null } : p
+                        )
+                    };
+                });
             });
 
-            socket.on('user_offline', ({ userId }) => {
+            socket.on('user_offline', ({ userId, lastSeen }) => {
                 setConversations(prev => prev.map(conv => ({
                     ...conv,
                     participants: conv.participants.map(participant =>
-                        participant._id === userId ? { ...participant, isOnline: false } : participant
+                        participant._id === userId ? { ...participant, isOnline: false, lastSeen: lastSeen || new Date() } : participant
                     )
                 })));
+
+                // Update active conversation if the user is a participant
+                setActiveConversation(prev => {
+                    if (!prev) return prev;
+                    const isParticipant = prev.participants.some(p => p._id === userId);
+                    if (!isParticipant) return prev;
+                    return {
+                        ...prev,
+                        participants: prev.participants.map(p =>
+                            p._id === userId ? { ...p, isOnline: false, lastSeen: lastSeen || new Date() } : p
+                        )
+                    };
+                });
             });
             socket.on('message_reaction', ({ messageId, reactions, emoji }) => {
                 setMessages(prev => prev.map(msg =>
@@ -1619,6 +1649,17 @@ const Chat = () => {
                                                     >
                                                         {isUserDeleted ? 'Deleted User' : (otherUser?.displayName || otherUser?.username)}
                                                     </Text>
+                                                    {!isUserDeleted && (
+                                                        <Text size="xs" color={otherUser?.isOnline ? "green" : "dimmed"} fw={otherUser?.isOnline ? 500 : 400}>
+                                                            {otherUser?.isOnline ? (
+                                                                "Online"
+                                                            ) : otherUser?.lastSeen ? (
+                                                                `Last seen ${dayjs(otherUser.lastSeen).fromNow()}`
+                                                            ) : (
+                                                                "Offline"
+                                                            )}
+                                                        </Text>
+                                                    )}
                                                 </Stack>
                                             </Group>
 

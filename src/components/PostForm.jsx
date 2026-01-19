@@ -1,22 +1,21 @@
-import {
-    Title, Button, Group, FileInput, Checkbox, TextInput, Box, Text, Image,
+import { Title, Button, Group, FileInput, Checkbox, TextInput, Box, Text, Image,
     Paper, ActionIcon, Stack, SegmentedControl, Chip, Tooltip, SimpleGrid, Center,
-    Transition, Collapse, useMantineColorScheme, Menu, Divider, rem, Skeleton
+    Transition, Collapse, useMantineColorScheme, Menu, Divider, rem, Skeleton, Select, ColorPicker, Popover
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { X, Upload, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { RichTextEditor, Link as MantineLink } from '@mantine/tiptap';
 import Underline from '@tiptap/extension-underline';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 import FontFamily from '@tiptap/extension-font-family';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import { Select, ColorPicker, Popover } from '@mantine/core';
 import { IconMoodSmile, IconMoodSad, IconMoodEmpty, IconHeart, IconRocket, IconMoodAngry, IconHash, IconPhoto, IconLink, IconFeather, IconQuote, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease, IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck, IconPalette } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,7 +63,7 @@ const LineHeight = Extension.create({
     addOptions() {
         return {
             types: ['paragraph', 'heading'],
-            defaultLineHeight: 'normal',
+            defaultLineHeight: '1.2',
         };
     },
     addGlobalAttributes() {
@@ -180,6 +179,18 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
             StarterKit.configure({
                 // Remove the default Link extension from StarterKit
                 link: false,
+                // Configure paragraph spacing
+                paragraph: {
+                    HTMLAttributes: {
+                        class: 'editor-paragraph',
+                    },
+                },
+                // Configure heading spacing
+                heading: {
+                    HTMLAttributes: {
+                        class: 'editor-heading',
+                    },
+                },
             }),
             Link.configure({
                 openOnClick: false,
@@ -198,15 +209,61 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
             Color,
         ],
         content: initialData?.content || '',
-        onUpdate({ editor }) {
-            form.setFieldValue('content', editor.getHTML());
-        },
         editorProps: {
             attributes: {
                 style: `min-height: 150px; padding: 0.75rem; outline: none; color: ${isDark ? 'white' : 'black'};`,
             },
+            // Add custom styles for better paragraph spacing
+            transformPastedHTML: (html) => {
+                // Convert double line breaks to proper paragraphs
+                return html.replace(/\n\s*\n/g, '</p><p>').replace(/^(.*)$/, '<p>$1</p>');
+            },
+        },
+        onUpdate({ editor }) {
+            form.setFieldValue('content', editor.getHTML());
         },
     });
+
+    // Memoize spacing options to prevent re-renders
+    const spacingOptions = useMemo(() => [
+        { label: 'Compact', value: '0.8' },
+        { label: 'Tight', value: '0.9' },
+        { label: '1.0', value: '1.0' },
+        { label: '1.1', value: '1.1' },
+        { label: '1.2', value: '1.2' },
+        { label: '1.3', value: '1.3' },
+        { label: '1.4', value: '1.4' },
+        { label: '1.5', value: '1.5' },
+        { label: '1.6', value: '1.6' },
+        { label: '1.8', value: '1.8' },
+        { label: '2.0', value: '2.0' },
+        { label: '2.5', value: '2.5' },
+        { label: '3.0', value: '3.0' },
+    ], []);
+
+    // Memoize current line height to prevent excessive checks
+    const currentLineHeight = useMemo(() => {
+        return editor?.getAttributes('paragraph').lineHeight || '1.2';
+    }, [editor?.state.selection, editor?.state.doc.content, editor?.state.doc.attrs]);
+
+    // Memoized spacing handlers
+    const handleLineSpacingChange = useCallback((value) => {
+        editor?.chain().focus(undefined, { scrollIntoView: false }).setLineHeight(value).run();
+    }, [editor]);
+
+    const handleMarginTopChange = useCallback((value) => {
+        editor?.chain().focus(undefined, { scrollIntoView: false }).setMarginTop(value).run();
+    }, [editor]);
+
+    const handleMarginBottomChange = useCallback((value) => {
+        editor?.chain().focus(undefined, { scrollIntoView: false }).setMarginBottom(value).run();
+    }, [editor]);
+
+    const handleResetSpacing = useCallback(() => {
+        editor?.chain().focus(undefined, { scrollIntoView: false }).unsetLineHeight().run();
+        editor?.chain().focus(undefined, { scrollIntoView: false }).setMarginTop(null).run();
+        editor?.chain().focus(undefined, { scrollIntoView: false }).setMarginBottom(null).run();
+    }, [editor]);
 
     // Update editor content if initialData changes
     useEffect(() => {
@@ -239,9 +296,92 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                 }
             }
         };
+
+        // Keyboard shortcuts for line spacing
+        const handleKeyDown = (e) => {
+            // Handle soft line breaks (Shift+Enter)
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                editor?.chain().focus().command(({ tr }) => {
+                    const { selection } = tr;
+                    const { $from } = selection;
+                    tr.replaceSelectionWith(editor.schema.text('\n'));
+                    tr.setSelection(TextSelection.create(tr.doc, $from.pos + 1));
+                    return true;
+                }).run();
+                return;
+            }
+            
+            if (e.ctrlKey || e.metaKey) {
+                // Font shortcuts
+                if (e.shiftKey) {
+                    switch(e.key) {
+                        case 's':
+                            e.preventDefault();
+                            editor?.chain().focus().setFontFamily('Arial').run();
+                            break;
+                        case 'r':
+                            e.preventDefault();
+                            editor?.chain().focus().setFontFamily('Times New Roman').run();
+                            break;
+                        case 'd':
+                            e.preventDefault();
+                            editor?.chain().focus().setFontFamily('Dancing Script').run();
+                            break;
+                        case 'i':
+                            e.preventDefault();
+                            editor?.chain().focus().setFontFamily('Impact').run();
+                            break;
+                        case 'c':
+                            e.preventDefault();
+                            editor?.chain().focus().setFontFamily('Courier New').run();
+                            break;
+                    }
+                }
+                // Ctrl/Cmd + Alt + 1: Set line height to 1.0
+                else if (e.altKey && e.key === '1') {
+                    e.preventDefault();
+                    editor?.chain().focus().setLineHeight('1.0').run();
+                }
+                // Ctrl/Cmd + Alt + 2: Set line height to 1.5
+                else if (e.altKey && e.key === '2') {
+                    e.preventDefault();
+                    editor?.chain().focus().setLineHeight('1.5').run();
+                }
+                // Ctrl/Cmd + Alt + 3: Set line height to 2.0
+                else if (e.altKey && e.key === '3') {
+                    e.preventDefault();
+                    editor?.chain().focus().setLineHeight('2.0').run();
+                }
+                // Ctrl/Cmd + Alt + 0: Reset line height
+                else if (e.altKey && e.key === '0') {
+                    e.preventDefault();
+                    editor?.chain().focus().unsetLineHeight().run();
+                }
+                // Ctrl/Cmd + Alt + Up: Decrease line spacing
+                else if (e.altKey && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const currentHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
+                    const newHeight = Math.max(0.8, parseFloat(currentHeight) - 0.1).toFixed(1);
+                    editor?.chain().focus().setLineHeight(newHeight).run();
+                }
+                // Ctrl/Cmd + Alt + Down: Increase line spacing
+                else if (e.altKey && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const currentHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
+                    const newHeight = Math.min(3.0, parseFloat(currentHeight) + 0.1).toFixed(1);
+                    editor?.chain().focus().setLineHeight(newHeight).run();
+                }
+            }
+        };
+
         window.addEventListener('paste', handlePaste);
-        return () => window.removeEventListener('paste', handlePaste);
-    }, [form]);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('paste', handlePaste);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [form, editor]);
 
     const clearImage = () => {
         form.setFieldValue('image', null);
@@ -366,6 +506,26 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                 }}
                                 onFocus={() => setFocusedField('editor')}
                                 onBlur={() => setFocusedField(null)}
+                                styles={{
+                                    content: {
+                                        '& .ProseMirror': {
+                                            '& p': {
+                                                marginBottom: '0.8em',
+                                                lineHeight: '1.2',
+                                            },
+                                            '& p:last-child': {
+                                                marginBottom: '0',
+                                            },
+                                            '& h1, & h2, & h3, & h4, & h5, & h6': {
+                                                marginBottom: '0.6em',
+                                                marginTop: '1.2em',
+                                            },
+                                            '& h1:first-child, & h2:first-child, & h3:first-child, & h4:first-child, & h5:first-child, & h6:first-child': {
+                                                marginTop: '0',
+                                            },
+                                        }
+                                    }
+                                }}
                             >
                                 <RichTextEditor.Toolbar style={{ backgroundColor: 'transparent', borderBottom: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)', padding: '6px' }}>
                                     <Group gap="4px" wrap="wrap" align="center" justify="center">
@@ -378,16 +538,55 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                         </RichTextEditor.ControlsGroup>
 
                                         <RichTextEditor.ControlsGroup>
-                                            <Select
-                                                placeholder="Font"
-                                                data={[
-                                                    { value: 'Great Vibes', label: 'G. Vibes' },
-                                                    { value: 'Satisfy', label: 'Satisfy' },
-                                                    { value: 'Impact', label: 'Impact' },
-                                                    { value: 'Dancing Script', label: 'Dancing' },
-                                                    { value: 'Lora', label: 'Lora' },
-                                                    { value: 'Playfair Display', label: 'Playfair' },
-                                                    { value: 'Arial', label: 'Arial' },
+                                            <Tooltip 
+                                                    label="Font shortcuts: Ctrl+Shift+S (Sans), Ctrl+Shift+R (Serif), Ctrl+Shift+D (Decorative), Ctrl+Shift+I (Impact), Ctrl+Shift+C (Code)"
+                                                    position="bottom"
+                                                    withArrow
+                                                    multiline
+                                                    w={180}
+                                                >
+                                                    <Select
+                                                        placeholder="Font"
+                                                        data={[
+                                                    // Serif Fonts
+                                                    { group: 'Serif', items: [
+                                                        { value: 'Georgia', label: 'Georgia' },
+                                                        { value: 'Times New Roman', label: 'Times' },
+                                                        { value: 'Playfair Display', label: 'Playfair' },
+                                                        { value: 'Lora', label: 'Lora' },
+                                                        { value: 'Merriweather', label: 'Merriweather' },
+                                                        { value: 'Baskerville', label: 'Baskerville' },
+                                                    ]},
+                                                    // Sans-serif Fonts
+                                                    { group: 'Sans-serif', items: [
+                                                        { value: 'Arial', label: 'Arial' },
+                                                        { value: 'Helvetica', label: 'Helvetica' },
+                                                        { value: 'Verdana', label: 'Verdana' },
+                                                        { value: 'Tahoma', label: 'Tahoma' },
+                                                        { value: 'Trebuchet MS', label: 'Trebuchet' },
+                                                        { value: 'Open Sans', label: 'Open Sans' },
+                                                        { value: 'Roboto', label: 'Roboto' },
+                                                        { value: 'Lato', label: 'Lato' },
+                                                        { value: 'Montserrat', label: 'Montserrat' },
+                                                    ]},
+                                                    // Display/Decorative Fonts
+                                                    { group: 'Display', items: [
+                                                        { value: 'Impact', label: 'Impact' },
+                                                        { value: 'Great Vibes', label: 'G. Vibes' },
+                                                        { value: 'Dancing Script', label: 'Dancing' },
+                                                        { value: 'Satisfy', label: 'Satisfy' },
+                                                        { value: 'Pacifico', label: 'Pacifico' },
+                                                        { value: 'Lobster', label: 'Lobster' },
+                                                        { value: 'Caveat', label: 'Caveat' },
+                                                        { value: 'Kalam', label: 'Kalam' },
+                                                    ]},
+                                                    // Monospace Fonts
+                                                    { group: 'Monospace', items: [
+                                                        { value: 'Courier New', label: 'Courier' },
+                                                        { value: 'Monaco', label: 'Monaco' },
+                                                        { value: 'Consolas', label: 'Consolas' },
+                                                        { value: 'Menlo', label: 'Menlo' },
+                                                    ]},
                                                 ]}
                                                 renderOption={({ option, checked }) => (
                                                     <Group flex="1" gap="xs">
@@ -406,7 +605,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                                     }
                                                 }}
                                                 size="xs"
-                                                w={90}
+                                                w={120}
                                                 styles={{
                                                     input: {
                                                         border: 'none',
@@ -414,23 +613,40 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                                         color: isDark ? 'var(--mantine-color-gray-2)' : 'var(--mantine-color-dark-7)',
                                                         fontSize: '10px',
                                                         height: '24px',
-                                                        padding: '0 4px',
+                                                        padding: '0 6px',
                                                         borderRadius: '6px',
-                                                        minHeight: '24px'
+                                                        minHeight: '24px',
+                                                        fontFamily: editor?.getAttributes('textStyle').fontFamily || 'inherit'
                                                     },
                                                     dropdown: {
                                                         backgroundColor: isDark ? 'rgba(20, 20, 20, 0.98)' : 'white',
                                                         backdropFilter: 'blur(10px)',
                                                         border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                                        borderRadius: '8px'
+                                                        borderRadius: '8px',
+                                                        maxHeight: '300px',
+                                                        overflowY: 'auto'
                                                     },
                                                     option: {
                                                         color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-dark-4)',
                                                         fontSize: '11px',
-                                                        padding: '4px'
+                                                        padding: '6px 8px',
+                                                        fontFamily: 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                                                        }
+                                                    },
+                                                    label: {
+                                                        color: isDark ? 'var(--mantine-color-gray-5)' : 'var(--mantine-color-gray-6)',
+                                                        fontSize: '9px',
+                                                        fontWeight: 700,
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.5px',
+                                                        padding: '4px 8px',
+                                                        backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
                                                     }
                                                 }}
                                             />
+                                                </Tooltip>
                                             <RichTextEditor.Control
                                                 onClick={() => {
                                                     const currentSize = editor.getAttributes('textStyle').fontSize;
@@ -522,39 +738,79 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                                 <IconQuote size={14} stroke={1.5} />
                                             </RichTextEditor.Control>
                                             <RichTextEditor.BulletList />
-                                            <Menu shadow="md" width={200} withinPortal>
+                                            <Menu shadow="md" width={250} withinPortal>
                                                 <Menu.Target>
-                                                    <RichTextEditor.Control aria-label="Spacing" title="Spacing">
-                                                        <IconSpacingVertical size={14} stroke={1.5} />
-                                                    </RichTextEditor.Control>
+                                                    <Tooltip 
+                                                        label="Keyboard shortcuts: Ctrl+Alt+1/2/3 for spacing, Ctrl+Alt+↑/↓ to adjust, Ctrl+Alt+0 to reset"
+                                                        position="bottom"
+                                                        withArrow
+                                                        multiline
+                                                        w={200}
+                                                    >
+                                                        <RichTextEditor.Control aria-label="Spacing" title="Spacing">
+                                                            <IconSpacingVertical size={14} stroke={1.5} />
+                                                        </RichTextEditor.Control>
+                                                    </Tooltip>
                                                 </Menu.Target>
-                                                <Menu.Dropdown>
+                                                <Menu.Dropdown style={{ maxHeight: '300px', overflowY: 'auto' }}>
                                                     <Menu.Label>Line Spacing</Menu.Label>
-                                                    {[
-                                                        { label: '1.0', value: '1.0' },
-                                                        { label: '1.5', value: '1.5' },
-                                                        { label: '2.0', value: '2.0' },
-                                                    ].map((item) => (
+                                                    {spacingOptions.map((item) => (
                                                         <Menu.Item
                                                             key={item.value}
-                                                            onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).setLineHeight(item.value).run()}
-                                                            rightSection={editor.isActive({ lineHeight: item.value }) ? <IconCheck size={12} /> : null}
+                                                            onClick={() => handleLineSpacingChange(item.value)}
+                                                            rightSection={currentLineHeight === item.value ? <IconCheck size={12} /> : null}
+                                                            style={{
+                                                                fontSize: item.value === '0.8' || item.value === '0.9' ? '11px' : '12px',
+                                                                color: item.value === '0.8' || item.value === '0.9' ? 'var(--mantine-color-blue-6)' : undefined
+                                                            }}
                                                         >
                                                             {item.label}
                                                         </Menu.Item>
                                                     ))}
                                                     <Divider my="5px" />
+                                                    <Menu.Label>Paragraph Spacing</Menu.Label>
                                                     <Menu.Item
                                                         leftSection={<IconArrowBarToDown size={12} />}
-                                                        onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).setMarginTop('16px').run()}
+                                                        onClick={() => handleMarginTopChange('8px')}
                                                     >
-                                                        Add Space Before
+                                                        Small Space Before
+                                                    </Menu.Item>
+                                                    <Menu.Item
+                                                        leftSection={<IconArrowBarToDown size={12} />}
+                                                        onClick={() => handleMarginTopChange('16px')}
+                                                    >
+                                                        Medium Space Before
+                                                    </Menu.Item>
+                                                    <Menu.Item
+                                                        leftSection={<IconArrowBarToDown size={12} />}
+                                                        onClick={() => handleMarginTopChange('24px')}
+                                                    >
+                                                        Large Space Before
                                                     </Menu.Item>
                                                     <Menu.Item
                                                         leftSection={<IconArrowBarToUp size={12} />}
-                                                        onClick={() => editor.chain().focus(undefined, { scrollIntoView: false }).setMarginBottom('16px').run()}
+                                                        onClick={() => handleMarginBottomChange('8px')}
                                                     >
-                                                        Add Space After
+                                                        Small Space After
+                                                    </Menu.Item>
+                                                    <Menu.Item
+                                                        leftSection={<IconArrowBarToUp size={12} />}
+                                                        onClick={() => handleMarginBottomChange('16px')}
+                                                    >
+                                                        Medium Space After
+                                                    </Menu.Item>
+                                                    <Menu.Item
+                                                        leftSection={<IconArrowBarToUp size={12} />}
+                                                        onClick={() => handleMarginBottomChange('24px')}
+                                                    >
+                                                        Large Space After
+                                                    </Menu.Item>
+                                                    <Divider my="5px" />
+                                                    <Menu.Item
+                                                        onClick={handleResetSpacing}
+                                                        style={{ color: 'var(--mantine-color-red-6)' }}
+                                                    >
+                                                        Reset All Spacing
                                                     </Menu.Item>
                                                 </Menu.Dropdown>
                                             </Menu>

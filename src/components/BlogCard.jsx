@@ -1,5 +1,6 @@
 import { Card, Text, Badge, Group, ActionIcon, Indicator, Button, Collapse, TextInput, Stack, Avatar, Image, Modal, Title, TypographyStylesProvider, Paper, Textarea, Tooltip, UnstyledButton } from '@mantine/core';
 import AppLoader from './AppLoader';
+import './BlogCard.css';
 
 import { Heart, MessageCircle, MessageSquare, Share2, Trash2, Edit, Send, Bookmark, MoreHorizontal, Download } from 'lucide-react';
 import { useState, useEffect, memo } from 'react';
@@ -766,7 +767,14 @@ const BlogCard = memo(({ blog }) => {
                             {/* Content */}
                             <div className="blog-post-content" style={{ fontSize: '14px', width: '100%' }}>
                                 {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? (
-                                    <div style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', minHeight: '300px' }}>
+                                    <div style={{ 
+                                        position: 'relative', 
+                                        width: '100%', 
+                                        borderRadius: '12px', 
+                                        overflow: 'hidden',
+                                        aspectRatio: '3/4',
+                                        minHeight: '180px'
+                                    }}>
                                         <img
                                             src={displayBlog.backgroundImage || "/paper-bg.png"}
                                             alt="Background"
@@ -776,7 +784,8 @@ const BlogCard = memo(({ blog }) => {
                                                 width: '100%',
                                                 height: '100%',
                                                 display: 'block',
-                                                objectFit: 'cover'
+                                                objectFit: 'cover',
+                                                objectPosition: 'center'
                                             }}
                                         />
                                         <div
@@ -786,24 +795,25 @@ const BlogCard = memo(({ blog }) => {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                padding: 'clamp(1.5rem, 5vw, 4rem)',
+                                                padding: 'clamp(0.3rem, 2vw, 1.2rem)',
                                                 width: '100%',
+                                                height: '100%',
                                                 // Add a subtle gradient overlay for better text readability
                                                 background: 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 100%)',
                                                 ...(displayBlog.displayMode === 'Poetry' ? {
                                                     fontFamily: "'Playfair Display', serif",
                                                     textAlign: 'justify',
                                                     whiteSpace: 'pre-line',
-                                                    lineHeight: 1.8, // Increased for elegance
-                                                    fontSize: 'clamp(0.85rem, 3vw, 1.5rem)',
-                                                    textShadow: '0 2px 4px rgba(0,0,0,0.05)', // Soft shadow
+                                                    lineHeight: 1.2,
+                                                    fontSize: 'clamp(0.45rem, 2.5vw, 0.85rem)',
+                                                    textShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                                     letterSpacing: '0.01em',
                                                 } : {
                                                     fontFamily: "'Dancing Script', cursive",
                                                     textAlign: 'justify',
                                                     whiteSpace: 'pre-line',
-                                                    lineHeight: 1.6,
-                                                    fontSize: 'clamp(1.1rem, 4.5vw, 2.5rem)',
+                                                    lineHeight: 1.0,
+                                                    fontSize: 'clamp(0.5rem, 2.8vw, 1.2rem)',
                                                     textShadow: '0 2px 3px rgba(255,255,255,0.8), 0 1px 1px rgba(0,0,0,0.1)',
                                                 })
                                             }}
@@ -811,11 +821,11 @@ const BlogCard = memo(({ blog }) => {
                                             {displayBlog.displayMode === 'Shayari' && (
                                                 <div style={{
                                                     fontFamily: 'serif',
-                                                    fontSize: '5rem',
+                                                    fontSize: 'clamp(0.8rem, 4vw, 2.5rem)',
                                                     position: 'absolute',
-                                                    top: '10px',
-                                                    left: '20px',
-                                                    color: 'rgba(74, 4, 4, 0.2)',
+                                                    top: '8px',
+                                                    left: '5px',
+                                                    color: 'rgba(74, 4, 4, 0.08)',
                                                     lineHeight: 1,
                                                     pointerEvents: 'none'
                                                 }}>
@@ -825,24 +835,26 @@ const BlogCard = memo(({ blog }) => {
 
                                             <div
                                                 dangerouslySetInnerHTML={{ __html: displayBlog.content }}
+                                                className="blog-content-display"
                                                 style={{
                                                     width: '100%',
-                                                    maxWidth: '600px', // Constrain width for better readability on desktop
+                                                    maxWidth: '90%',
                                                     color: '#2c3e50',
                                                     position: 'relative',
                                                     zIndex: 1,
-                                                    margin: '0 auto' // Ensure centering
+                                                    margin: '0 auto',
+                                                    textAlign: 'center'
                                                 }}
                                             />
 
                                             {displayBlog.displayMode === 'Shayari' && (
                                                 <div style={{
                                                     fontFamily: 'serif',
-                                                    fontSize: '5rem',
+                                                    fontSize: 'clamp(0.8rem, 4vw, 2.5rem)',
                                                     position: 'absolute',
-                                                    bottom: '-20px',
-                                                    right: '20px',
-                                                    color: 'rgba(74, 4, 4, 0.2)',
+                                                    bottom: '8px',
+                                                    right: '5px',
+                                                    color: 'rgba(74, 4, 4, 0.08)',
                                                     lineHeight: 1,
                                                     pointerEvents: 'none'
                                                 }}>
@@ -864,12 +876,19 @@ const BlogCard = memo(({ blog }) => {
                             </div>
 
                             {displayBlog.mediaUrl && (
-                                <Image
-                                    src={displayBlog.mediaUrl}
-                                    alt="Post image"
-                                    mt="md"
-                                    radius="md"
-                                />
+                                <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '1rem' }}>
+                                    <img
+                                        src={displayBlog.mediaUrl}
+                                        alt="Post image"
+                                        style={{
+                                            maxWidth: '100%',
+                                            height: 'auto',
+                                            display: 'block',
+                                            borderRadius: '8px',
+                                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                                        }}
+                                    />
+                                </div>
                             )}
 
                             {/* Actions - Enhanced with animations */}

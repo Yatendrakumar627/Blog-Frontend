@@ -35,7 +35,7 @@ const Navbar = () => {
                 backdropFilter: 'blur(16px) saturate(180%)', // Stronger blur
                 position: 'sticky',
                 top: 0,
-                zIndex: 200,
+                zIndex: 2000,
                 transition: 'all 0.3s ease'
             }}
         >
@@ -121,6 +121,8 @@ const Navbar = () => {
                             withArrow
                             arrowPosition="center"
                             transitionProps={{ transition: 'pop-top-right', duration: 200 }}
+                            zIndex={3000}
+                            withinPortal={true}
                         >
                             <Menu.Target>
                                 <UnstyledButton
@@ -131,16 +133,28 @@ const Navbar = () => {
                                     }}
                                 >
                                     <Group gap={10} align="center" wrap="nowrap">
-                                        <Indicator
-                                            inline
-                                            size={12}
-                                            offset={2}
-                                            position="bottom-end"
-                                            color="green"
-                                            withBorder
-                                            disabled={!user.isOnline}
-                                            processing={user.isOnline}
-                                        >
+                                        {user.isOnline ? (
+                                            <Indicator
+                                                inline
+                                                size={12}
+                                                offset={2}
+                                                position="bottom-end"
+                                                color="green"
+                                                withBorder
+                                                processing
+                                            >
+                                                <Avatar
+                                                    src={user.profilePic}
+                                                    size="md"
+                                                    radius="xl"
+                                                    alt={user.username}
+                                                    style={{
+                                                        border: '2px solid var(--mantine-color-body)',
+                                                        boxShadow: '0 0 0 2px var(--mantine-color-primary-filled, #ec4899)'
+                                                    }}
+                                                />
+                                            </Indicator>
+                                        ) : (
                                             <Avatar
                                                 src={user.profilePic}
                                                 size="md"
@@ -151,7 +165,7 @@ const Navbar = () => {
                                                     boxShadow: '0 0 0 2px var(--mantine-color-primary-filled, #ec4899)'
                                                 }}
                                             />
-                                        </Indicator>
+                                        )}
 
                                         <Box visibleFrom="sm">
                                             <Text

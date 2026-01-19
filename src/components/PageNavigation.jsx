@@ -32,7 +32,7 @@ const PageNavigation = () => {
             style={{
                 position: 'sticky',
                 top: '70px',
-                zIndex: 99,
+                zIndex: 1000,
                 borderRadius: '50px',
                 backdropFilter: 'blur(20px) saturate(180%)',
                 backgroundColor: isDark ? 'rgba(25, 25, 25, 0.85)' : 'rgba(255, 255, 255, 0.85)',
@@ -58,13 +58,13 @@ const PageNavigation = () => {
                                 <Indicator
                                     inline
                                     size={10}
-                                    offset={2}
+                                    offset={1}
                                     position="top-end"
                                     color="red"
                                     withBorder
                                     processing
                                 >
-                                    {IconComponent}
+                                    <link.icon size={18} stroke={2.5} />
                                 </Indicator>
                             );
                         }

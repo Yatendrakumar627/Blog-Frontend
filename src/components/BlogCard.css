@@ -1,0 +1,114 @@
+/* BlogCard.css - Styles for displaying blog content with proper formatting */
+
+.blog-content-display {
+    /* Apply the same paragraph spacing as in the editor */
+}
+
+.blog-content-display .editor-paragraph {
+    margin-bottom: 0.8em;
+    line-height: 1.2;
+}
+
+.blog-content-display .editor-heading {
+    margin-bottom: 0.6em;
+    margin-top: 1.2em;
+}
+
+.blog-content-display p {
+    margin-bottom: 0.8em;
+    line-height: 1.2;
+}
+
+.blog-content-display p:last-child {
+    margin-bottom: 0;
+}
+
+.blog-content-display h1,
+.blog-content-display h2,
+.blog-content-display h3,
+.blog-content-display h4,
+.blog-content-display h5,
+.blog-content-display h6 {
+    margin-bottom: 0.6em;
+    margin-top: 1.2em;
+}
+
+.blog-content-display h1:first-child,
+.blog-content-display h2:first-child,
+.blog-content-display h3:first-child,
+.blog-content-display h4:first-child,
+.blog-content-display h5:first-child,
+.blog-content-display h6:first-child {
+    margin-top: 0;
+}
+
+/* Ensure consistent text rendering */
+.blog-content-display {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: justify;
+    color: #2c3e50;
+}
+
+/* Handle line breaks and spacing properly */
+.blog-content-display br {
+    line-height: 1.2;
+}
+
+.blog-content-display .ProseMirror p {
+    margin-bottom: 0.8em;
+    line-height: 1.2;
+}
+
+.blog-content-display .ProseMirror p:last-child {
+    margin-bottom: 0;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    .blog-content-display {
+        font-size: 16px; /* Larger font on mobile for readability */
+        line-height: 1.7;
+        padding: 0 1rem;
+    }
+    
+    .blog-content-display p {
+        margin-bottom: 1em;
+        line-height: 1.7;
+    }
+    
+    .blog-content-display .editor-paragraph {
+        margin-bottom: 1em;
+        line-height: 1.7;
+    }
+    
+    .blog-content-display h1,
+    .blog-content-display h2,
+    .blog-content-display h3,
+    .blog-content-display h4,
+    .blog-content-display h5,
+    .blog-content-display h6 {
+        margin-bottom: 0.8em;
+        margin-top: 1.5em;
+    }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+    .blog-content-display {
+        font-size: 18px; /* Even larger on very small screens */
+        line-height: 1.8;
+        padding: 0 0.5rem;
+    }
+    
+    .blog-content-display p {
+        margin-bottom: 1.2em;
+        line-height: 1.8;
+    }
+    
+    .blog-content-display .editor-paragraph {
+        margin-bottom: 1.2em;
+        line-height: 1.8;
+    }
+}
