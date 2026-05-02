@@ -405,18 +405,19 @@ const BlogCard = memo(({ blog }) => {
 
             const brandName = document.createElement('div');
             brandName.style.color = isDarkMode ? '#fff' : '#000';
-            brandName.style.fontSize = '18px'; // Smaller, stronger
-            brandName.style.fontWeight = '700';
-            brandName.style.letterSpacing = '4px'; // High tracking
+            brandName.style.fontSize = '28px'; // Premium size
+            brandName.style.fontWeight = '900';
+            brandName.style.letterSpacing = '6px'; // Elegant tracking
             brandName.style.textTransform = 'uppercase';
-            brandName.innerHTML = 'BlogApp';
+            brandName.innerHTML = 'DIL KI BAAT';
 
             const dateInfo = document.createElement('div');
-            dateInfo.style.color = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
-            dateInfo.style.fontSize = '13px';
-            dateInfo.style.fontWeight = '400';
+            dateInfo.style.color = isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
+            dateInfo.style.fontSize = '18px';
+            dateInfo.style.fontWeight = '500';
             dateInfo.style.letterSpacing = '1px';
             dateInfo.style.fontFamily = "'Inter', sans-serif";
+            dateInfo.style.marginTop = '4px';
             dateInfo.innerHTML = dayjs().format('DD MMMM YYYY');
 
             brandBox.appendChild(brandName);
