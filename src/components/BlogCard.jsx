@@ -277,18 +277,8 @@ const BlogCard = memo(({ blog }) => {
             const toDataURL = async (url) => {
                 if (!url || url.startsWith('data:')) return url;
                 try {
-                    let fetchUrl = url;
-                    
-                    // Root cause fix: If it's a same-origin image, don't use the proxy!
-                    try {
-                        const parsedUrl = new URL(url, window.location.origin);
-                        // If it's not same origin, use the proxy
-                        if (parsedUrl.origin !== window.location.origin) {
-                            fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(url)}`;
-                        }
-                    } catch (e) {
-                        // If parsing fails, just try the original URL
-                    }
+                    // Always use proxy for non-data URLs to avoid CORS issues in canvas
+                    const fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(url)}`;
 
                     const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -299,8 +289,21 @@ const BlogCard = memo(({ blog }) => {
                         reader.readAsDataURL(blob);
                     });
                 } catch (err) {
-                    console.warn('Failed to convert image to data URL:', url, err);
-                    return url; // Fallback to original
+                    console.warn('Failed to convert image to data URL via proxy:', url, err);
+                    // Fallback to direct fetch if proxy fails (might work for same-origin)
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`Direct fetch failed: ${response.status}`);
+                        const blob = await response.blob();
+                        return new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch (directErr) {
+                        console.warn('Fallback direct fetch also failed:', url, directErr);
+                        return url;
+                    }
                 }
             };
 
@@ -413,9 +416,9 @@ const BlogCard = memo(({ blog }) => {
             const canvas = await html2canvas(wrapper, {
                 backgroundColor: isDarkMode ? '#000000' : '#ffffff',
                 scale: 2, // High resolution
-                logging: false,
-                useCORS: false,
-                allowTaint: false,
+                logging: true,
+                useCORS: true,
+                allowTaint: true,
                 width: 1080,
                 height: actualHeight,
                 windowWidth: 1080,
