@@ -1,13 +1,21 @@
 import { Paper, Text, Stack, Group, Avatar, Image, Title, Skeleton, UnstyledButton, Indicator } from '@mantine/core';
 import { IconTrendingUp, IconHeart } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 
 const TrendingPosts = ({ posts }) => {
     const navigate = useNavigate();
 
-    if (!posts || posts.length === 0) return null;
+    // Pre-strip HTML from all posts once, not on every render
+    const processedPosts = useMemo(() => {
+        if (!posts) return [];
+        return posts.map(post => ({
+            ...post,
+            plainContent: post.content.replace(/<[^>]+>/g, ''),
+        }));
+    }, [posts]);
 
-
+    if (!processedPosts || processedPosts.length === 0) return null;
 
     return (
         <Paper p="md" radius="md" withBorder>
@@ -16,13 +24,13 @@ const TrendingPosts = ({ posts }) => {
                 <Title order={5}>Trending Now</Title>
             </Group>
             <Stack gap="sm">
-                {posts.map((post, index) => (
+                {processedPosts.map((post, index) => (
                     <UnstyledButton key={post._id} onClick={() => navigate(`/post/${post._id}`)}>
                         <Group wrap="nowrap" align="flex-start">
                             <Text size="lg" fw={700} c="dimmed" style={{ width: 20 }}>{index + 1}</Text>
                             <Stack gap={4} style={{ flex: 1 }}>
                                 <Text size="sm" fw={600} lineClamp={2}>
-                                    {post.content.replace(/<[^>]+>/g, '') /* Basic strip HTML */}
+                                    {post.plainContent}
                                 </Text>
                                 <Group gap="xs">
                                     <Indicator

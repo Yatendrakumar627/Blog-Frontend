@@ -29,4 +29,20 @@ api.interceptors.request.use(
     }
 );
 
+// Add a response interceptor to handle expired tokens
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            const token = localStorage.getItem('token');
+            // Only auto-logout if user HAD a token (expired session), not on login/register failures
+            if (token && !error.config.url?.includes('/auth/login') && !error.config.url?.includes('/auth/register')) {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default api;

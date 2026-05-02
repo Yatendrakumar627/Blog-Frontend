@@ -30,7 +30,7 @@ import useAuthStore from '../store/authStore';
 import { notifications } from '@mantine/notifications';
 import api from '../api/axios';
 
-const VAPID_PUBLIC_KEY = 'BAsAUTAA5WseSu0twq_8AngS-J5Fgmo_yn2fNBVJH3Iadgna8zKdo-EdZus9aVIHdx8TXnWTSxfkW5cWhiJdRIE';
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BAsAUTAA5WseSu0twq_8AngS-J5Fgmo_yn2fNBVJH3Iadgna8zKdo-EdZus9aVIHdx8TXnWTSxfkW5cWhiJdRIE';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);

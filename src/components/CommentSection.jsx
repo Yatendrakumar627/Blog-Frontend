@@ -1,8 +1,9 @@
-import { Stack, Title, Group, Text, Paper, Avatar, Textarea, ActionIcon, Indicator } from '@mantine/core';
+import { Stack, Title, Group, Text, Paper, Avatar, Textarea, ActionIcon, Indicator, Modal, Button } from '@mantine/core';
 import AppLoader from './AppLoader';
-import { Send, Trash2 } from 'lucide-react'; // Added Trash2 import for future delete capability
+import { Send, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDisclosure } from '@mantine/hooks';
 import api from '../api/axios';
 import useAuthStore from '../store/authStore';
 import dayjs from 'dayjs';
@@ -16,6 +17,8 @@ const CommentSection = ({ blogId }) => {
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [commentText, setCommentText] = useState('');
+    const [commentToDelete, setCommentToDelete] = useState(null);
+    const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
     const fetchComments = async () => {
         try {
@@ -41,19 +44,25 @@ const CommentSection = ({ blogId }) => {
 
         try {
             const { data } = await api.post('/comments', { content: commentText, blogId });
-            setComments([data, ...comments]); // Prepend new comment
+            setComments([data, ...comments]);
             setCommentText('');
         } catch (error) {
             console.error(error);
-            // Optionally show notification
         }
     };
 
-    const handleDeleteComment = async (commentId) => {
-        if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    const handleDeleteClick = (commentId) => {
+        setCommentToDelete(commentId);
+        openDelete();
+    };
+
+    const confirmDeleteComment = async () => {
+        if (!commentToDelete) return;
         try {
-            await api.delete(`/comments/${commentId}`);
-            setComments(comments.filter(c => c._id !== commentId));
+            await api.delete(`/comments/${commentToDelete}`);
+            setComments(comments.filter(c => c._id !== commentToDelete));
+            closeDelete();
+            setCommentToDelete(null);
         } catch (error) {
             console.error(error);
         }
@@ -62,6 +71,17 @@ const CommentSection = ({ blogId }) => {
     return (
         <Stack mt="xl" gap="md">
             <Title order={4}>Comments ({comments.length})</Title>
+
+            {/* Delete Confirmation Modal */}
+            <Modal opened={deleteOpened} onClose={closeDelete} title="Delete Comment" centered radius="md" size="sm">
+                <Stack>
+                    <Text size="sm">Are you sure you want to delete this comment? This action cannot be undone.</Text>
+                    <Group justify="flex-end" mt="md">
+                        <Button variant="default" onClick={closeDelete}>Cancel</Button>
+                        <Button color="red" onClick={confirmDeleteComment}>Delete</Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
             {/* Comment Form */}
             {user ? (
@@ -108,7 +128,7 @@ const CommentSection = ({ blogId }) => {
             ) : (
                 <Stack gap="md">
                     {comments.map((c) => (
-                        <Paper key={c._id} p="sm" radius="md" bg="var(--mantine-color-gray-0)">
+                        <Paper key={c._id} p="sm" radius="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))">
                             <Group wrap="nowrap" align="flex-start">
                                 <Indicator
                                     inline
@@ -148,7 +168,7 @@ const CommentSection = ({ blogId }) => {
                                                 variant="subtle"
                                                 color="red"
                                                 size="sm"
-                                                onClick={() => handleDeleteComment(c._id)}
+                                                onClick={() => handleDeleteClick(c._id)}
                                                 title="Delete comment"
                                             >
                                                 <Trash2 size={14} />

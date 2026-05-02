@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Container, Tabs, TextInput, Center, Grid, Text, Title, Stack, ActionIcon, rem, Tooltip, Badge, Button, Group, Skeleton } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import AppLoader from '../components/AppLoader';
@@ -16,7 +17,8 @@ import dayjs from 'dayjs';
 import './Explore.css';
 
 const Explore = () => {
-    const [search, setSearch] = useState('');
+    const [searchParams] = useSearchParams();
+    const [search, setSearch] = useState(searchParams.get('search') || '');
     const [debouncedSearch] = useDebouncedValue(search, 300);
     const [dateRange, setDateRange] = useState([null, null]);
     const [activeTab, setActiveTab] = useState('posts');
@@ -146,7 +148,7 @@ const Explore = () => {
             <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
                 {/* Search and Filter Container - Single Line */}
                 <div style={{
-                    marginBottom: 'md',
+                    marginBottom: '16px',
                     display: 'flex',
                     gap: isMobile ? '8px' : '12px',
                     flexDirection: isMobile ? 'column' : 'row',
@@ -275,7 +277,7 @@ const Explore = () => {
 
                 {/* Preset Date Buttons - Second Line */}
                 <div style={{
-                    marginBottom: 'md',
+                    marginBottom: '16px',
                     display: 'flex',
                     gap: isMobile ? '8px' : '12px',
                     flexWrap: 'wrap',
@@ -359,7 +361,7 @@ const Explore = () => {
                             ) : (
                                 <Stack>
                                     {isFiltering && (
-                                        <Group gap="xs" style={{ marginBottom: 'md' }}>
+                                        <Group gap="xs" style={{ marginBottom: '16px' }}>
                                             <AppLoader size="sm" />
                                             <Text size="sm" c="dimmed">Filtering posts...</Text>
                                         </Group>

@@ -7,6 +7,7 @@ import Navbar from './components/Navbar';
 import PageNavigation from './components/PageNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 import useAuthStore from './store/authStore';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy Load Pages
 const Home = lazy(() => import('./pages/Home'));
@@ -19,6 +20,8 @@ const Explore = lazy(() => import('./pages/Explore'));
 const SinglePost = lazy(() => import('./pages/SinglePost'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Chat = lazy(() => import('./pages/Chat'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 const queryClient = new QueryClient();
 
@@ -29,7 +32,9 @@ const PageTransition = ({ children }) => (
     exit={{ opacity: 0, y: -10 }}
     transition={{ duration: 0.2 }}
   >
-    {children}
+    <Suspense fallback={<LoadingOverlay visible={true} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} loaderProps={{ color: 'pink', type: 'bars' }} />}>
+      {children}
+    </Suspense>
   </motion.div>
 );
 
@@ -48,6 +53,8 @@ const AnimatedRoutes = () => {
         } />
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/register" element={<PageTransition><Register /></PageTransition>} />
+        <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
+        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/post" element={
           <PageTransition>
             <ProtectedRoute>
@@ -92,9 +99,7 @@ const AnimatedRoutes = () => {
         } />
         <Route path="/post/:id" element={
           <PageTransition>
-            <ProtectedRoute>
-              <SinglePost />
-            </ProtectedRoute>
+            <SinglePost />
           </PageTransition>
         } />
         <Route path="/settings" element={
@@ -125,15 +130,15 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Navbar />
-        <PageNavigation />
-        <Container px="md" mt="md">
-          <Suspense fallback={<LoadingOverlay visible={true} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} loaderProps={{ color: 'pink', type: 'bars' }} />}>
+      <ErrorBoundary>
+        <Router>
+          <Navbar />
+          <PageNavigation />
+          <Container px="md" mt="md">
             <AnimatedRoutes />
-          </Suspense>
-        </Container>
-      </Router>
+          </Container>
+        </Router>
+      </ErrorBoundary>
     </QueryClientProvider>
   );
 }

@@ -104,11 +104,15 @@ export const useLikePost = () => {
     const { user } = useAuthStore();
 
     return useMutation({
-        mutationFn: async (postId) => {
-            const { data } = await api.put(`/blogs/${postId}/like`);
+        mutationFn: async (payload) => {
+            const postId = typeof payload === 'string' ? payload : payload.id;
+            const reactionType = typeof payload === 'object' ? payload.reactionType : null;
+            const { data } = await api.put(`/blogs/${postId}/like`, { reactionType });
             return data;
         },
-        onMutate: async (postId) => {
+        onMutate: async (payload) => {
+            const postId = typeof payload === 'string' ? payload : payload.id;
+            const reactionType = typeof payload === 'object' ? payload.reactionType : null;
             // Cancel outgoing refetches
             await queryClient.cancelQueries({ queryKey: ['posts'] });
 
@@ -118,21 +122,40 @@ export const useLikePost = () => {
             // Optimistically update
             queryClient.setQueriesData({ queryKey: ['posts'] }, (old) => {
                 if (!old) return old;
-                // old is an infinite query data object with pages
                 return {
                     ...old,
                     pages: old.pages.map(page => ({
                         ...page,
                         blogs: page.blogs.map(blog => {
                             if (blog._id === postId) {
-                                const isLiked = blog.likes.includes(user?._id);
+                                const userId = user?._id;
+                                if (!userId) return blog;
+
                                 let newLikes = [...blog.likes];
-                                if (isLiked) {
-                                    newLikes = newLikes.filter(id => id !== user?._id);
-                                } else if (user?._id) {
-                                    newLikes.push(user._id);
+                                let newReactions = [...(blog.reactions || [])];
+                                
+                                const existingReactionIndex = newReactions.findIndex(r => (r.user?._id || r.user) === userId);
+                                
+                                if (existingReactionIndex !== -1) {
+                                    const existingReaction = newReactions[existingReactionIndex];
+                                    if (existingReaction.type === reactionType || !reactionType) {
+                                        // Remove reaction
+                                        newReactions.splice(existingReactionIndex, 1);
+                                        newLikes = newLikes.filter(id => (id?._id || id) !== userId);
+                                    } else {
+                                        // Change reaction
+                                        newReactions[existingReactionIndex] = { ...existingReaction, type: reactionType };
+                                    }
+                                } else {
+                                    // Add reaction
+                                    const type = reactionType || 'I feel this';
+                                    newReactions.push({ user: userId, type });
+                                    if (!newLikes.some(id => (id?._id || id) === userId)) {
+                                        newLikes.push(userId);
+                                    }
                                 }
-                                return { ...blog, likes: newLikes };
+
+                                return { ...blog, likes: newLikes, reactions: newReactions };
                             }
                             return blog;
                         })
@@ -150,9 +173,23 @@ export const useLikePost = () => {
                 });
             }
         },
-        onSuccess: (data, postId) => {
-            // We can optimize this later, but invalidation is safest for now to sync everything
-            // queryClient.invalidateQueries({ queryKey: ['posts'] });
+        onSuccess: (data, payload) => {
+            const postId = typeof payload === 'string' ? payload : payload.id;
+            queryClient.setQueriesData({ queryKey: ['posts'] }, (old) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    pages: old.pages.map(page => ({
+                        ...page,
+                        blogs: page.blogs.map(blog => {
+                            if (blog._id === postId) {
+                                return { ...blog, likes: data.likes, reactions: data.reactions };
+                            }
+                            return blog;
+                        })
+                    }))
+                };
+            });
         },
     });
 };

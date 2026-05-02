@@ -1,6 +1,6 @@
 import { Title, Button, Group, FileInput, Checkbox, TextInput, Box, Text, Image,
     Paper, ActionIcon, Stack, SegmentedControl, Chip, Tooltip, SimpleGrid, Center,
-    Transition, Collapse, useMantineColorScheme, Menu, Divider, rem, Skeleton, Select, ColorPicker, Popover
+    Transition, Collapse, useMantineColorScheme, Menu, Divider, rem, Skeleton, Select, ColorPicker, Popover, Alert
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -16,8 +16,9 @@ import TextAlign from '@tiptap/extension-text-align';
 import FontFamily from '@tiptap/extension-font-family';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import { IconMoodSmile, IconMoodSad, IconMoodEmpty, IconHeart, IconRocket, IconMoodAngry, IconHash, IconPhoto, IconLink, IconFeather, IconQuote, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease, IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck, IconPalette } from '@tabler/icons-react';
+import { IconMoodSmile, IconMoodSad, IconMoodEmpty, IconHeart, IconRocket, IconMoodAngry, IconHash, IconPhoto, IconLink, IconFeather, IconQuote, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease, IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck, IconPalette, IconHeartHandshake } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notifications } from '@mantine/notifications';
 
 const MOODS = [
     { value: 'Happy', icon: IconMoodSmile, color: 'yellow', label: 'Happy' },
@@ -156,6 +157,9 @@ const ParagraphSpacing = Extension.create({
 const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loading = false, isLoading = false }) => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [focusedField, setFocusedField] = useState(null);
+    const [hasDraft, setHasDraft] = useState(false);
+    const [showSupport, setShowSupport] = useState(false);
+    const DRAFT_KEY = 'blog_draft';
 
     const form = useForm({
         initialValues: {
@@ -297,7 +301,75 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
             }
         };
 
-        // Keyboard shortcuts for line spacing
+        document.addEventListener('paste', handlePaste);
+        return () => document.removeEventListener('paste', handlePaste);
+    }, [form]);
+
+    // Check for draft on mount
+    useEffect(() => {
+        if (!initialData) {
+            const savedDraft = localStorage.getItem(DRAFT_KEY);
+            if (savedDraft) {
+                setHasDraft(true);
+            }
+        }
+    }, [initialData]);
+
+    // Save draft when content changes
+    useEffect(() => {
+        if (!initialData && form.values.content) {
+            // Emotional Support Check
+            const lowerContent = form.values.content.toLowerCase();
+            const negativeWords = ['suicide', 'kill myself', 'depressed', 'end it all', 'hopeless', 'meaningless', 'hurt myself', 'give up'];
+            const hasNegativeVibes = negativeWords.some(word => lowerContent.includes(word));
+            if (hasNegativeVibes && !showSupport) setShowSupport(true);
+            if (!hasNegativeVibes && showSupport) setShowSupport(false);
+
+            const timer = setTimeout(() => {
+                const draft = {
+                    content: form.values.content,
+                    mood: form.values.mood,
+                    tags: form.values.tags,
+                    isAnonymous: form.values.isAnonymous,
+                    displayMode: form.values.displayMode,
+                    imageUrl: form.values.imageUrl,
+                    backgroundImageUrl: form.values.backgroundImageUrl
+                };
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [form.values, initialData]);
+
+    const loadDraft = () => {
+        try {
+            const savedDraft = localStorage.getItem(DRAFT_KEY);
+            if (savedDraft) {
+                const draft = JSON.parse(savedDraft);
+                form.setValues({ ...form.values, ...draft });
+                if (editor) {
+                    editor.commands.setContent(draft.content);
+                }
+                setHasDraft(false);
+                notifications.show({ title: 'Draft Loaded', message: 'Your previous work has been restored.', color: 'green' });
+            }
+        } catch (e) {
+            console.error('Failed to load draft:', e);
+        }
+    };
+
+    const clearDraft = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        setHasDraft(false);
+    };
+
+    const handleFormSubmit = (values) => {
+        if (!initialData) clearDraft();
+        handleSubmitFn(values);
+    };
+
+    // Keyboard shortcuts for line spacing
+    useEffect(() => {
         const handleKeyDown = (e) => {
             // Handle soft line breaks (Shift+Enter)
             if (e.key === 'Enter' && e.shiftKey) {
@@ -375,13 +447,9 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
             }
         };
 
-        window.addEventListener('paste', handlePaste);
         window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('paste', handlePaste);
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [form, editor]);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [editor]);
 
     const clearImage = () => {
         form.setFieldValue('image', null);
@@ -469,25 +537,36 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
     }
 
     return (
-        <form onSubmit={form.onSubmit(handleSubmitFn)}>
+        <form onSubmit={form.onSubmit(handleFormSubmit)}>
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
+                transition={{ duration: 0.3 }}
             >
-                <Paper
-                    radius="lg"
-                    p={{ base: 'xs', sm: 'lg' }}
-                    withBorder
-                    bg={isDark ? "rgba(28, 28, 28, 0.7)" : "rgba(255, 255, 255, 0.8)"}
-                    style={{
-                        backdropFilter: 'blur(16px)',
-                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
-                        boxShadow: isDark ? '0 12px 40px rgba(0, 0, 0, 0.4)' : '0 12px 40px rgba(0, 0, 0, 0.1)',
-                        color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-dark-9)'
-                    }}
-                >
-                    <Stack gap={{ base: 'sm', sm: 'md' }}>
+                <Paper p="lg" radius="xl" withBorder style={{
+                    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                    backgroundColor: isDark ? 'rgba(30, 30, 35, 0.6)' : 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(10px)'
+                }}>
+                    <Stack gap="xl">
+                        {/* Header & Display Mode */}
+                        <Group justify="space-between" align="center" wrap="wrap">
+                            <Group>
+                                <Title order={4} fw={800} style={{
+                                    background: 'linear-gradient(45deg, #339af0, #e64980)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent'
+                                }}>
+                                    {initialData ? 'Edit your thoughts' : 'What\'s on your mind?'}
+                                </Title>
+                                {hasDraft && !initialData && (
+                                    <Button variant="light" color="orange" size="xs" radius="xl" onClick={loadDraft}>
+                                        Restore Draft
+                                    </Button>
+                                )}
+                            </Group>
+                        </Group>
+
                         {/* Editor Section */}
                         <Box>
                             <Text fw={600} mb={6} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1035,12 +1114,64 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                         </AnimatePresence>
 
                         <Group justify="space-between" align="center" mt="xs">
-                            <Checkbox
-                                label="Post Anonymously"
-                                checked={form.values.isAnonymous}
-                                {...form.getInputProps('isAnonymous', { type: 'checkbox' })}
-                                styles={{ label: { cursor: 'pointer', userSelect: 'none', fontSize: '13px' } }}
-                            />
+                            <Group gap="xs">
+                                <Checkbox
+                                    label="Post Anonymously"
+                                    checked={form.values.isAnonymous}
+                                    {...form.getInputProps('isAnonymous', { type: 'checkbox' })}
+                                    styles={{ label: { cursor: 'pointer', userSelect: 'none', fontSize: '13px' } }}
+                                />
+                                
+                                <Transition mounted={showSupport} transition="scale" duration={400}>
+                                    {(styles) => (
+                                        <Box style={styles}>
+                                            <Popover width={280} position="top" withArrow shadow="xl" radius="md">
+                                                <Popover.Target>
+                                                    <Tooltip label="We're here for you" position="top" withArrow>
+                                                        <ActionIcon 
+                                                            variant="light" 
+                                                            color="pink" 
+                                                            radius="xl" 
+                                                            size="md"
+                                                            component={motion.button}
+                                                            animate={{ 
+                                                                scale: [1, 1.2, 1],
+                                                                opacity: [0.8, 1, 0.8]
+                                                            }}
+                                                            transition={{ 
+                                                                duration: 2, 
+                                                                repeat: Infinity,
+                                                                ease: "easeInOut"
+                                                            }}
+                                                        >
+                                                            <IconHeartHandshake size={18} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                </Popover.Target>
+                                                <Popover.Dropdown p="md" style={{ border: '1px solid var(--mantine-color-pink-2)' }}>
+                                                    <Group gap="xs" mb={8}>
+                                                        <IconHeartHandshake size={20} color="var(--mantine-color-pink-6)" />
+                                                        <Text size="sm" fw={700} c="pink">Dil Ki Baat is with you</Text>
+                                                    </Group>
+                                                    <Text size="xs" mb="md" lh={1.5}>It sounds like you might be going through a heavy moment. You don't have to carry it alone. If you need someone to talk to, help is just a call away.</Text>
+                                                    <Button 
+                                                        component="a" 
+                                                        href="https://blog.opencounseling.com/suicide-hotlines/" 
+                                                        target="_blank" 
+                                                        variant="gradient" 
+                                                        gradient={{ from: 'pink', to: 'grape' }}
+                                                        size="xs" 
+                                                        fullWidth
+                                                        radius="md"
+                                                    >
+                                                        Find a Local Helpline
+                                                    </Button>
+                                                </Popover.Dropdown>
+                                            </Popover>
+                                        </Box>
+                                    )}
+                                </Transition>
+                            </Group>
                             <Group>
                                 {onCancel && (
                                     <Button variant="subtle" color="gray" onClick={onCancel} size="sm">Cancel</Button>

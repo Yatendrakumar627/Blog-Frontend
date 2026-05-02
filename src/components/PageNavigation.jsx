@@ -4,13 +4,20 @@ import { IconHome, IconWriting, IconUser, IconMessage } from '@tabler/icons-reac
 import useAuthStore from '../store/authStore';
 import { useSocket } from '../contexts/SocketContext';
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
 
 const PageNavigation = () => {
     const { user } = useAuthStore();
     const location = useLocation();
-    const { unreadCount } = useSocket();
+    const { unreadCount, hasNewMessage, setHasNewMessage } = useSocket();
     const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
     const isDark = computedColorScheme === 'dark';
+
+    useEffect(() => {
+        if (location.pathname === '/chat') {
+            setHasNewMessage(false);
+        }
+    }, [location.pathname, setHasNewMessage]);
 
     if (!user) return null;
 
@@ -53,7 +60,9 @@ const PageNavigation = () => {
 
                         let IconComponent = <link.icon size={18} stroke={2.5} />;
 
-                        if (link.isMessage && unreadCount > 0) {
+                        // Only show red dot if there is TRULY new activity (hasNewMessage)
+                        // and we are NOT currently looking at the chat page
+                        if (link.isMessage && hasNewMessage && location.pathname !== '/chat') {
                             IconComponent = (
                                 <Indicator
                                     inline
@@ -96,23 +105,19 @@ const PageNavigation = () => {
                                     px="xl"
                                     fw={700}
                                     leftSection={IconComponent}
-                                    styles={(theme) => ({
+                                    styles={{
                                         root: {
                                             height: '40px',
                                             color: isActive ? 'var(--mantine-color-white)' : (isDark ? 'var(--mantine-color-gray-4)' : 'var(--mantine-color-gray-7)'),
-                                            '&:hover': {
-                                                backgroundColor: isActive ? 'transparent' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'),
-                                                color: isActive ? 'var(--mantine-color-white)' : (isDark ? 'var(--mantine-color-white)' : 'var(--mantine-color-black)'),
-                                            },
+                                            backgroundColor: 'transparent',
                                             position: 'relative',
                                             zIndex: 1,
                                             transition: 'all 0.2s ease',
                                         },
                                         inner: {
-                                            transform: isActive ? 'translateY(0)' : 'none',
                                             letterSpacing: '0.3px'
                                         }
-                                    })}
+                                    }}
                                 >
                                     {link.label}
                                 </Button>

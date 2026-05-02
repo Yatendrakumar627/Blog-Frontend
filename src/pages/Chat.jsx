@@ -294,7 +294,7 @@ const themes = {
 
 const Chat = () => {
     const { user } = useAuthStore();
-    const { socket, setUnreadCount } = useSocket();
+    const { socket, setUnreadCount, fetchUnreadCount } = useSocket();
     const [conversations, setConversations] = useState([]);
     const [trashedConversations, setTrashedConversations] = useState([]);
     const [activeConversation, setActiveConversation] = useState(null);
@@ -305,6 +305,7 @@ const Chat = () => {
     const [replyingTo, setReplyingTo] = useState(null);
     const inputRef = useRef(null);
     const virtuosoRef = useRef(null);
+    const typingTimeoutRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [trashLoading, setTrashLoading] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
@@ -348,8 +349,8 @@ const Chat = () => {
             });
 
             // Stop typing after 2 seconds of inactivity
-            if (window.typingTimeout) clearTimeout(window.typingTimeout);
-            window.typingTimeout = setTimeout(() => {
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
                 socket.emit('stop_typing', {
                     conversationId: activeConversation._id,
                     recipientId: recipient._id
@@ -442,9 +443,12 @@ const Chat = () => {
             setMessages(prev => [...prev, message]);
             scrollToBottom();
             markAsReadLocal(activeConversation._id);
+        } else {
+            // Refresh unread count if it's a message for a different conversation
+            fetchUnreadCount();
         }
         debouncedFetchConversations();
-    }, [activeConversation, debouncedFetchConversations]);
+    }, [activeConversation, debouncedFetchConversations, fetchUnreadCount]);
 
     // Optimized send handler
     const handleSendMessage = useCallback(async (e) => {
@@ -521,6 +525,7 @@ const Chat = () => {
             socket.emit('join', user._id);
             fetchConversations();
             fetchTrashedConversations();
+            fetchUnreadCount();
         }
 
         if (socket) {
@@ -589,24 +594,6 @@ const Chat = () => {
                 fetchTrashedConversations();
             });
 
-            return () => {
-                socket.off('new_message');
-                socket.off('message_deleted');
-                socket.off('user_deleted');
-                socket.off('conversation_moved_to_trash');
-                socket.off('conversation_restored');
-                socket.off('conversation_permanently_deleted');
-                socket.off('message_in_trashed_chat');
-                socket.off('message_in_trashed_chat');
-                socket.off('conversation_theme_updated');
-                socket.off('user_online');
-                socket.off('user_offline');
-            };
-        }
-    }, [user, socket, activeConversation]);
-
-    useEffect(() => {
-        if (socket) {
             socket.on('conversation_theme_updated', ({ conversationId, theme }) => {
                 if (activeConversation && activeConversation._id === conversationId) {
                     setActiveConversation(prev => ({ ...prev, theme }));
@@ -666,6 +653,7 @@ const Chat = () => {
                     };
                 });
             });
+
             socket.on('message_reaction', ({ messageId, reactions, emoji }) => {
                 setMessages(prev => prev.map(msg =>
                     msg._id === messageId ? { ...msg, reactions } : msg

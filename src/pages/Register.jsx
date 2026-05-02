@@ -1,12 +1,36 @@
-import { TextInput, PasswordInput, Button, Paper, Title, Container, Text, Stack, Anchor, Box, LoadingOverlay } from '@mantine/core';
+import { TextInput, PasswordInput, Button, Paper, Title, Container, Text, Stack, Anchor, Box, LoadingOverlay, Progress } from '@mantine/core';
 import AppLoader from '../components/AppLoader';
 import { useForm } from '@mantine/form';
 import useAuthStore from '../store/authStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { IconCheck, IconX, IconUser, IconMail, IconLock, IconSignature } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
+
+const getPasswordStrength = (password) => {
+    let strength = 0;
+    if (password.length >= 6) strength += 25;
+    if (password.length >= 10) strength += 15;
+    if (/[A-Z]/.test(password)) strength += 20;
+    if (/[0-9]/.test(password)) strength += 20;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 20;
+    return Math.min(100, strength);
+};
+
+const PasswordStrengthBar = ({ password }) => {
+    if (!password) return null;
+    const strength = getPasswordStrength(password);
+    const color = strength < 40 ? 'red' : strength < 70 ? 'yellow' : 'green';
+    const label = strength < 40 ? 'Weak' : strength < 70 ? 'Medium' : 'Strong';
+
+    return (
+        <Box mt={-8}>
+            <Progress value={strength} color={color} size="xs" radius="xl" animated />
+            <Text size="xs" c={color} mt={4} fw={500}>{label} password</Text>
+        </Box>
+    );
+};
 
 const Register = () => {
     const { register, loading: authLoading } = useAuthStore();
@@ -170,6 +194,7 @@ const Register = () => {
                                 description="Must be at least 6 characters"
                                 styles={{ input: { transition: 'border-color 0.2s ease' } }}
                             />
+                            <PasswordStrengthBar password={form.values.password} />
 
                             <Button
                                 fullWidth

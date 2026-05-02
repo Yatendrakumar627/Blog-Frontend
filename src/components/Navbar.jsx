@@ -76,7 +76,13 @@ const Navbar = () => {
                         </Group>
                     )}
 
-                    <Tooltip label={computedColorScheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'} position="bottom" withArrow>
+                    <Tooltip 
+                        label={computedColorScheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'} 
+                        position="bottom" 
+                        withArrow
+                        zIndex={10000}
+                        withinPortal
+                    >
                         <ActionIcon
                             onClick={toggleColorScheme}
                             variant="subtle"
@@ -121,7 +127,7 @@ const Navbar = () => {
                             withArrow
                             arrowPosition="center"
                             transitionProps={{ transition: 'pop-top-right', duration: 200 }}
-                            zIndex={3000}
+                            zIndex={10000}
                             withinPortal={true}
                         >
                             <Menu.Target>

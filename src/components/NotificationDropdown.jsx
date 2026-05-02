@@ -18,99 +18,21 @@ const NotificationDropdown = () => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     
-    // Create audio ref with better error handling
+    // Simple notification sound — lazy init, silent failure
     const audioRef = useRef(null);
-    const [audioLoaded, setAudioLoaded] = useState(false);
 
-    // Initialize audio with proper error handling
-    useEffect(() => {
-        const initAudio = async () => {
-            try {
-                // Check browser audio support
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) {
-                    console.warn('Audio not supported in this browser');
-                    setAudioLoaded(false);
-                    return;
-                }
-
-                // Try to create and load audio
-                const audio = new Audio();
-                
-                // Set up event listeners before setting src
-                audio.addEventListener('canplaythrough', () => {
-                    setAudioLoaded(true);
-                    console.log('Notification sound loaded successfully');
-                });
-                
-                audio.addEventListener('error', (e) => {
-                    console.warn('Failed to load notification sound:', e);
-                    setAudioLoaded(false);
-                });
-                
-                // Try multiple paths for the audio file
-                const audioPaths = [
-                    `/assets/notification.mp3?t=${Date.now()}`,
-                    `/notification.mp3?t=${Date.now()}`,
-                    `./assets/notification.mp3?t=${Date.now()}`
-                ];
-                
-                let loaded = false;
-                for (const path of audioPaths) {
-                    try {
-                        audio.src = path;
-                        audio.preload = 'auto';
-                        audio.volume = 0.3; // Set reasonable volume
-                        
-                        // Test if we can load this path
-                        await new Promise((resolve, reject) => {
-                            const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
-                            audio.addEventListener('canplaythrough', () => {
-                                clearTimeout(timeout);
-                                resolve();
-                            }, { once: true });
-                            audio.addEventListener('error', () => {
-                                clearTimeout(timeout);
-                                reject(new Error('Load failed'));
-                            }, { once: true });
-                        });
-                        
-                        loaded = true;
-                        break;
-                    } catch (e) {
-                        console.warn(`Failed to load audio from ${path}:`, e);
-                        continue;
-                    }
-                }
-                
-                if (!loaded) {
-                    throw new Error('Could not load notification sound from any path');
-                }
-                
-                // Store the audio reference
-                audioRef.current = audio;
-                
-                // Try to play a silent sound to initialize audio context
-                await audio.play().catch(() => {
-                    // Ignore initial play failure - it's expected in some browsers
-                });
-                
-            } catch (error) {
-                console.warn('Audio initialization failed:', error);
-                setAudioLoaded(false);
+    const playNotificationSound = () => {
+        try {
+            if (!audioRef.current) {
+                audioRef.current = new Audio('/assets/notification.mp3');
+                audioRef.current.volume = 0.3;
             }
-        };
-
-        initAudio();
-        
-        // Cleanup
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
-    }, []);
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+        } catch {
+            // Audio not supported — silently ignore
+        }
+    };
 
     const getNotificationContent = (n) => {
         let text = '';
@@ -122,6 +44,10 @@ const NotificationDropdown = () => {
                 break;
             case 'comment':
                 text = `commented on your post "${n.blog?.title || 'post'}"`;
+                link = `/post/${n.blog?._id || n.blog}`;
+                break;
+            case 'reaction':
+                text = `reacted with "${n.text || 'empathy'}" to your post "${n.blog?.title || 'post'}"`;
                 link = `/post/${n.blog?._id || n.blog}`;
                 break;
             case 'follow':
@@ -159,28 +85,6 @@ const NotificationDropdown = () => {
                 setNotifications(prev => [newNotification, ...prev]);
                 setUnreadCount(prev => prev + 1);
 
-                // Play sound with better error handling
-                const playNotificationSound = async () => {
-                    if (audioRef.current && audioLoaded) {
-                        try {
-                            // Reset audio to start if it was playing
-                            audioRef.current.currentTime = 0;
-                            await audioRef.current.play();
-                        } catch (error) {
-                            console.warn('Failed to play notification sound:', error);
-                            // Try to reinitialize audio on failure
-                            if (audioRef.current) {
-                                audioRef.current.src = `/assets/notification.mp3?t=${Date.now()}`;
-                                try {
-                                    await audioRef.current.play();
-                                } catch (retryError) {
-                                    console.warn('Retry also failed:', retryError);
-                                }
-                            }
-                        }
-                    }
-                };
-
                 playNotificationSound();
 
                 // Show toast
@@ -201,7 +105,7 @@ const NotificationDropdown = () => {
                 socket.off('notification');
             };
         }
-    }, [socket, audioLoaded]);
+    }, [socket]);
 
     const handleMarkRead = async (id, link) => {
         try {
@@ -227,7 +131,7 @@ const NotificationDropdown = () => {
 
 
     return (
-        <Menu shadow="md" width={320} position="bottom-end" onOpen={fetchNotifications} zIndex={5000} withinPortal>
+        <Menu shadow="md" width={320} position="bottom-end" onOpen={fetchNotifications} zIndex={10000} withinPortal>
             <Menu.Target>
                 <Indicator inline label={unreadCount} size={16} color="red" disabled={unreadCount === 0} offset={2} withBorder processing>
                     <ActionIcon variant="transparent" size="lg" color="gray" aria-label="Notifications">

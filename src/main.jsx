@@ -14,6 +14,14 @@ import './GlobalOverrides.css';
 const theme = createTheme({
   primaryColor: 'blue',
   focusStyles: 'never',
+  components: {
+    Tooltip: {
+      defaultProps: {
+        zIndex: 10000,
+        withinPortal: true,
+      },
+    },
+  },
 });
 
 const colorSchemeManager = localStorageColorSchemeManager({
@@ -28,11 +36,7 @@ createRoot(document.getElementById('root')).render(
           position="top-right"
           autoClose={4000}
           limit={5}
-          styles={{
-            root: {
-              // Disable any audio/sound related styles
-            }
-          }}
+          zIndex={10000}
         />
         <App />
       </MantineProvider>

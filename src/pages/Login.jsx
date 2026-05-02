@@ -118,6 +118,10 @@ const Login = () => {
                                 styles={{ input: { transition: 'border-color 0.2s ease' } }}
                             />
 
+                            <Anchor component={Link} to="/forgot-password" size="xs" c="dimmed" ta="right" style={{ marginTop: -8 }}>
+                                Forgot password?
+                            </Anchor>
+
                             <Button
                                 fullWidth
                                 mt="xl"
@@ -141,7 +145,7 @@ const Login = () => {
 
                 <Box mt="xl" style={{ textAlign: 'center' }}>
                     <Text size="sm" c="dimmed">
-                        Already have an account?{' '}
+                        Don&apos;t have an account?{' '}
                         <Anchor component={Link} to="/register" size="sm" fw={700}>
                             Sign up
                         </Anchor>

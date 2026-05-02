@@ -1,9 +1,9 @@
-import { Card, Text, Badge, Group, ActionIcon, Indicator, Button, Collapse, TextInput, Stack, Avatar, Image, Modal, Title, TypographyStylesProvider, Paper, Textarea, Tooltip, UnstyledButton } from '@mantine/core';
+import { Card, Text, Badge, Group, ActionIcon, Indicator, Button, Collapse, TextInput, Stack, Avatar, Image, Modal, Title, TypographyStylesProvider, Paper, Textarea, Tooltip, UnstyledButton, useMantineColorScheme, Menu } from '@mantine/core';
 import AppLoader from './AppLoader';
 import './BlogCard.css';
 
 import { Heart, MessageCircle, MessageSquare, Share2, Trash2, Edit, Send, Bookmark, MoreHorizontal, Download } from 'lucide-react';
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import useAuthStore from '../store/authStore';
@@ -15,20 +15,29 @@ import { useLikePost } from '../hooks/usePosts';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 // import html2canvas from 'html2canvas'; // Dynamically imported
+import { sanitizeHTML } from '../utils/sanitize';
 
 dayjs.extend(relativeTime);
 
+const REACTIONS = [
+    { label: 'I feel this', icon: '❤️', value: 'I feel this', color: 'red' },
+    { label: 'Sending hugs', icon: '🤗', value: 'Sending hugs', color: 'pink' },
+    { label: 'Resonates', icon: '✨', value: 'Resonates', color: 'yellow' },
+    { label: 'Snaps', icon: '👏', value: 'Snaps', color: 'violet' },
+];
+
 const BlogCard = memo(({ blog }) => {
-    // Debug: Log the entire blog object to see its structure
-    console.log('Blog data received:', blog);
-    console.log('Author data:', blog.author);
     const { user, updateUser } = useAuthStore();
     const navigate = useNavigate();
     const { mutate: likePost } = useLikePost();
+    const { colorScheme } = useMantineColorScheme();
+    const isDark = colorScheme === 'dark';
 
     // Derived state from props
     const likes = blog?.likes || [];
-    const isLiked = user && blog && likes.includes(user._id);
+    const reactions = blog?.reactions || [];
+    const userReaction = user && reactions.find(r => (r.user?._id || r.user) === user._id)?.type;
+    const isLiked = !!userReaction || (user && blog && likes.includes(user._id));
     const isBookmarked = user && user.bookmarks && blog && user.bookmarks.includes(blog._id);
 
     const [comments, setComments] = useState([]); // Initialize empty, fetch on demand
@@ -47,19 +56,19 @@ const BlogCard = memo(({ blog }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [displayBlog, setDisplayBlog] = useState(blog);
     const [downloading, setDownloading] = useState(false);
-    const cardRef = useState(null);
+    const cardRef = useRef(null);
 
-    const handleLike = () => {
+    const handleLike = (reactionType = null) => {
         if (!user) {
-            open();
+            navigate('/login');
             return;
         }
-        likePost(blog._id);
+        likePost({ id: blog._id, reactionType });
     };
 
     const toggleComments = async () => {
         if (!user) {
-            open();
+            navigate('/login');
             return;
         }
 
@@ -126,6 +135,10 @@ const BlogCard = memo(({ blog }) => {
     };
 
     const handleShare = () => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
         const url = `${window.location.origin}/post/${displayBlog._id}`;
         navigator.clipboard.writeText(url);
         notifications.show({
@@ -137,7 +150,7 @@ const BlogCard = memo(({ blog }) => {
 
     const handleBookmark = async () => {
         if (!user) {
-            open();
+            navigate('/login');
             return;
         }
         try {
@@ -162,7 +175,7 @@ const BlogCard = memo(({ blog }) => {
     const handleMessageClick = async (e) => {
         e.stopPropagation();
         if (!user) {
-            open();
+            navigate('/login');
             return;
         }
         if (user?._id === displayBlog.author?._id) return;
@@ -214,7 +227,7 @@ const BlogCard = memo(({ blog }) => {
 
     const handleDownloadImage = async () => {
         if (!user) {
-            open();
+            navigate('/login');
             return;
         }
 
@@ -247,10 +260,10 @@ const BlogCard = memo(({ blog }) => {
 
             if (isDarkMode) {
                 // Spotlight effect: Lighter center, dark edges
-                wrapper.style.background = 'radial-gradient(circle at 50% 30%, #2a2a2a 0%, #000000 100%)';
+                wrapper.style.background = 'linear-gradient(to bottom right, #2a2a2a 0%, #000000 100%)';
             } else {
                 // Light mode spotlight: White center, soft grey edges
-                wrapper.style.background = 'radial-gradient(circle at 50% 30%, #ffffff 0%, #e6e9f0 100%)';
+                wrapper.style.background = 'linear-gradient(to bottom right, #ffffff 0%, #e6e9f0 100%)';
             }
 
             // Clone the card
@@ -259,6 +272,49 @@ const BlogCard = memo(({ blog }) => {
             // Remove interactive elements from clone
             const interactiveElements = cardClone.querySelectorAll('button, [role="button"], .mantine-Collapse-root');
             interactiveElements.forEach(el => el.style.display = 'none');
+
+            // Helper: Convert an image URL to a base64 data URL via the server proxy
+            const toDataURL = async (url) => {
+                if (!url || url.startsWith('data:')) return url;
+                try {
+                    let fetchUrl = url;
+                    
+                    // Root cause fix: If it's a same-origin image, don't use the proxy!
+                    try {
+                        const parsedUrl = new URL(url, window.location.origin);
+                        // If it's not same origin, use the proxy
+                        if (parsedUrl.origin !== window.location.origin) {
+                            fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(url)}`;
+                        }
+                    } catch (e) {
+                        // If parsing fails, just try the original URL
+                    }
+
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const blob = await response.blob();
+                    return new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (err) {
+                    console.warn('Failed to convert image to data URL:', url, err);
+                    return url; // Fallback to original
+                }
+            };
+
+            // Pre-convert ALL images in the clone to base64 data URLs
+            // This completely bypasses CORS issues for html2canvas
+            const allImages = cardClone.querySelectorAll('img');
+            await Promise.all(
+                Array.from(allImages).map(async (img) => {
+                    if (img.src && !img.src.startsWith('data:')) {
+                        const dataUrl = await toDataURL(img.src);
+                        img.src = dataUrl;
+                    }
+                })
+            );
 
             // Force larger font size for the content
             const contentDiv = cardClone.querySelector('.blog-post-content');
@@ -355,16 +411,16 @@ const BlogCard = memo(({ blog }) => {
 
             const html2canvas = (await import('html2canvas')).default;
             const canvas = await html2canvas(wrapper, {
-                backgroundColor: null,
+                backgroundColor: isDarkMode ? '#000000' : '#ffffff',
                 scale: 2, // High resolution
                 logging: false,
-                useCORS: true,
-                allowTaint: true,
+                useCORS: false,
+                allowTaint: false,
                 width: 1080,
                 height: actualHeight,
                 windowWidth: 1080,
                 windowHeight: actualHeight,
-                ignoreElements: (element) => element.classList.contains('no-export'), // Helper to ignore elements if needed
+                ignoreElements: (element) => element.classList.contains('no-export'),
             });
 
             // Remove wrapper from body
@@ -375,7 +431,7 @@ const BlogCard = memo(({ blog }) => {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `BlogApp-${(displayBlog.title || 'post').substring(0, 20).replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${dayjs().format('YYYYMMDD')}.png`;
+                link.download = `BlogApp-${(displayBlog.title || 'post').substring(0, 20).replace(/[^a-z0-9]/gi, '_').toLowerCase()}-${dayjs().format('YYYYMMDD_HHmmss')}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -406,6 +462,15 @@ const BlogCard = memo(({ blog }) => {
 
     const getUsername = (user) => {
         return user?.username || 'unknown';
+    };
+
+    // Calculate reading time based on word count (avg 200 words per minute)
+    const getReadingTime = (content) => {
+        if (!content) return '< 1 min read';
+        const text = content.replace(/<[^>]+>/g, '').trim();
+        const wordCount = text.split(/\s+/).filter(Boolean).length;
+        const minutes = Math.ceil(wordCount / 200);
+        return minutes < 1 ? '< 1 min read' : `${minutes} min read`;
     };
 
     const isAuthor = user && blog && blog.author && (user._id === (blog.author._id || blog.author));
@@ -493,13 +558,13 @@ const BlogCard = memo(({ blog }) => {
                         <>
                             {/* Header - Always outside for Poetry/Shayari */}
                             {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? (
-                                <Group justify="space-between" mb="sm" p={0}>
+                                <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
                                     <motion.div
                                         whileHover={{ scale: 1.02 }}
                                         transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                     >
                                         <UnstyledButton
-                                            onClick={() => navigate(`/profile/${displayBlog.author?.username}`)}
+                                            onClick={() => { if (user) navigate(`/profile/${displayBlog.author?.username}`); else navigate('/login'); }}
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -524,7 +589,7 @@ const BlogCard = memo(({ blog }) => {
                                                 processing={displayBlog.author?.isOnline && !displayBlog.isAnonymous}
                                             >
                                                 <Avatar
-                                                    src={displayBlog.author?.profilePic}
+                                                    src={(!user || displayBlog.isAnonymous) ? null : displayBlog.author?.profilePic}
                                                     radius="xl"
                                                     size="sm"
                                                     style={{
@@ -542,7 +607,7 @@ const BlogCard = memo(({ blog }) => {
                                                         lineHeight: 1.2
                                                     }}
                                                 >
-                                                    {displayBlog.isAnonymous ? 'Anonymous' : getDisplayName(displayBlog.author)}
+                                                    {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
                                                 </Text>
                                                 <Text
                                                     size="xs"
@@ -552,12 +617,12 @@ const BlogCard = memo(({ blog }) => {
                                                         marginTop: '2px'
                                                     }}
                                                 >
-                                                    {dayjs(displayBlog.createdAt).fromNow()}
+                                                    {dayjs(displayBlog.createdAt).fromNow()} · {getReadingTime(displayBlog.content)}
                                                 </Text>
                                             </div>
                                         </UnstyledButton>
                                     </motion.div>
-                                    <Group gap="xs">
+                                    <Group gap="xs" wrap="nowrap">
                                         <Badge
                                             color="violet"
                                             variant="light"
@@ -587,7 +652,7 @@ const BlogCard = memo(({ blog }) => {
                                                 whileTap={{ scale: 0.9 }}
                                                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                             >
-                                                <Tooltip label="Message Author" position="bottom" withArrow>
+                                                <Tooltip label="Message Author" position="bottom" withArrow zIndex={10000} withinPortal>
                                                     <ActionIcon
                                                         variant="transparent"
                                                         onClick={handleMessageClick}
@@ -609,7 +674,7 @@ const BlogCard = memo(({ blog }) => {
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                         >
-                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow>
+                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
                                                     variant="transparent"
                                                     color={isBookmarked ? 'yellow' : 'gray'}
@@ -634,13 +699,13 @@ const BlogCard = memo(({ blog }) => {
                                     </Group>
                                 </Group>
                             ) : (
-                                <Group justify="space-between" mb="sm" p={0}>
+                                <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
                                     <motion.div
                                         whileHover={{ scale: 1.02 }}
                                         transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                     >
                                         <UnstyledButton
-                                            onClick={() => navigate(`/profile/${displayBlog.author?.username}`)}
+                                            onClick={() => { if (user) navigate(`/profile/${displayBlog.author?.username}`); else navigate('/login'); }}
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -665,7 +730,7 @@ const BlogCard = memo(({ blog }) => {
                                                 processing={displayBlog.author?.isOnline && !displayBlog.isAnonymous}
                                             >
                                                 <Avatar
-                                                    src={displayBlog.author?.profilePic}
+                                                    src={(!user || displayBlog.isAnonymous) ? null : displayBlog.author?.profilePic}
                                                     radius="xl"
                                                     style={{
                                                         border: '2px solid var(--mantine-color-blue-6)',
@@ -681,7 +746,7 @@ const BlogCard = memo(({ blog }) => {
                                                         lineHeight: 1.2
                                                     }}
                                                 >
-                                                    {displayBlog.isAnonymous ? 'Anonymous' : getDisplayName(displayBlog.author)}
+                                                    {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
                                                 </Text>
                                                 <Text
                                                     size="xs"
@@ -691,12 +756,12 @@ const BlogCard = memo(({ blog }) => {
                                                         marginTop: '2px'
                                                     }}
                                                 >
-                                                    {dayjs(displayBlog.createdAt).fromNow()}
+                                                    {dayjs(displayBlog.createdAt).fromNow()} · {getReadingTime(displayBlog.content)}
                                                 </Text>
                                             </div>
                                         </UnstyledButton>
                                     </motion.div>
-                                    <Group gap="xs">
+                                    <Group gap="xs" wrap="nowrap">
                                         <Badge
                                             color="pink"
                                             variant="light"
@@ -715,7 +780,7 @@ const BlogCard = memo(({ blog }) => {
                                                 whileTap={{ scale: 0.9 }}
                                                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                             >
-                                                <Tooltip label="Message Author" position="bottom" withArrow>
+                                                <Tooltip label="Message Author" position="bottom" withArrow zIndex={10000} withinPortal>
                                                     <ActionIcon
                                                         variant="transparent"
                                                         onClick={handleMessageClick}
@@ -737,7 +802,7 @@ const BlogCard = memo(({ blog }) => {
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                         >
-                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow>
+                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
                                                     variant="transparent"
                                                     color={isBookmarked ? 'yellow' : 'gray'}
@@ -799,7 +864,9 @@ const BlogCard = memo(({ blog }) => {
                                                 width: '100%',
                                                 height: '100%',
                                                 // Add a subtle gradient overlay for better text readability
-                                                background: 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 100%)',
+                                                background: isDark 
+                                                    ? 'radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 100%)'
+                                                    : 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 100%)',
                                                 ...(displayBlog.displayMode === 'Poetry' ? {
                                                     fontFamily: "'Playfair Display', serif",
                                                     textAlign: 'justify',
@@ -834,12 +901,12 @@ const BlogCard = memo(({ blog }) => {
                                             )}
 
                                             <div
-                                                dangerouslySetInnerHTML={{ __html: displayBlog.content }}
+                                                dangerouslySetInnerHTML={{ __html: sanitizeHTML(displayBlog.content) }}
                                                 className="blog-content-display"
                                                 style={{
                                                     width: '100%',
                                                     maxWidth: '90%',
-                                                    color: '#2c3e50',
+                                                    color: isDark ? 'rgba(255,255,255,0.9)' : '#2c3e50',
                                                     position: 'relative',
                                                     zIndex: 1,
                                                     margin: '0 auto',
@@ -865,7 +932,7 @@ const BlogCard = memo(({ blog }) => {
                                     </div>
                                 ) : (
                                     <div
-                                        dangerouslySetInnerHTML={{ __html: displayBlog.content }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(displayBlog.content) }}
                                         style={{
                                             textAlign: 'justify',
                                             lineHeight: 1.6,
@@ -891,6 +958,29 @@ const BlogCard = memo(({ blog }) => {
                                 </div>
                             )}
 
+                            {/* Clickable Tags */}
+                            {displayBlog.tags && displayBlog.tags.length > 0 && (
+                                <Group gap={6} mt="xs" wrap="wrap">
+                                    {displayBlog.tags.map((tag, index) => (
+                                        <Badge
+                                            key={index}
+                                            variant="light"
+                                            color="blue"
+                                            size="sm"
+                                            radius="xl"
+                                            style={{
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                textTransform: 'lowercase',
+                                            }}
+                                            onClick={() => navigate(`/explore?search=${encodeURIComponent(tag)}`)}
+                                        >
+                                            #{tag}
+                                        </Badge>
+                                    ))}
+                                </Group>
+                            )}
+
                             {/* Actions - Enhanced with animations */}
                             <Group
                                 mt={(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? 'sm' : 'md'}
@@ -902,36 +992,70 @@ const BlogCard = memo(({ blog }) => {
                                 }}
                             >
                                 <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
+                                    whileHover={{ scale: 1.05 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                 >
-                                    <Tooltip label={isLiked ? "Unlike" : "Like"} position="top" withArrow>
-                                        <UnstyledButton
-                                            onClick={handleLike}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '8px',
-                                                borderRadius: '8px',
-                                                transition: 'all 0.2s ease',
-                                                color: isLiked ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)',
-                                                '&:hover': {
-                                                    backgroundColor: isLiked ? 'var(--mantine-color-red-0)' : 'var(--mantine-color-gray-0)',
-                                                    color: isLiked ? 'var(--mantine-color-red-7)' : 'var(--mantine-color-gray-7)'
-                                                }
-                                            }}
-                                        >
-                                            <motion.div
-                                                animate={{ scale: isLiked ? [1, 1.2, 1] : 1 }}
-                                                transition={{ duration: 0.3 }}
+                                    <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400} position="top-start" withArrow withinPortal>
+                                        <Menu.Target>
+                                            <UnstyledButton
+                                                onClick={() => handleLike()}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '8px 12px',
+                                                    borderRadius: '12px',
+                                                    transition: 'all 0.2s ease',
+                                                    backgroundColor: isLiked ? (isDark ? 'rgba(230, 73, 128, 0.15)' : 'var(--mantine-color-pink-0)') : 'transparent',
+                                                    color: userReaction ? `var(--mantine-color-${REACTIONS.find(r => r.value === userReaction)?.color}-6)` : (isLiked ? 'var(--mantine-color-pink-6)' : 'var(--mantine-color-gray-6)'),
+                                                    border: isLiked ? `1px solid ${isDark ? 'rgba(230, 73, 128, 0.3)' : 'var(--mantine-color-pink-2)'}` : '1px solid transparent',
+                                                    '&:hover': {
+                                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'var(--mantine-color-gray-0)',
+                                                    }
+                                                }}
                                             >
-                                                <Heart fill={isLiked ? 'currentColor' : 'none'} size={20} />
-                                            </motion.div>
-                                            <Text size="sm" fw={500}>{likes.length}</Text>
-                                        </UnstyledButton>
-                                    </Tooltip>
+                                                <motion.div
+                                                    animate={{ scale: isLiked ? [1, 1.2, 1] : 1 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, fontSize: 18 }}
+                                                >
+                                                    {userReaction ? (
+                                                        REACTIONS.find(r => r.value === userReaction)?.icon
+                                                    ) : (
+                                                        <Heart fill={isLiked ? 'currentColor' : 'none'} size={20} />
+                                                    )}
+                                                </motion.div>
+                                                <Text size="sm" fw={700}>{likes.length}</Text>
+                                            </UnstyledButton>
+                                        </Menu.Target>
+
+                                        <Menu.Dropdown p="xs" style={{ borderRadius: '16px' }}>
+                                            <Menu.Label>Empathy Reactions</Menu.Label>
+                                            <Group gap="xs" p="xs">
+                                                {REACTIONS.map((reaction) => (
+                                                    <Tooltip key={reaction.value} label={reaction.label} position="top" withArrow>
+                                                        <ActionIcon
+                                                            variant={userReaction === reaction.value ? 'light' : 'subtle'}
+                                                            color={reaction.color}
+                                                            size="xl"
+                                                            radius="md"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleLike(reaction.value);
+                                                            }}
+                                                            style={{
+                                                                fontSize: '22px',
+                                                                transition: 'transform 0.2s ease',
+                                                                '&:hover': { transform: 'scale(1.2)' }
+                                                            }}
+                                                        >
+                                                            {reaction.icon}
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                ))}
+                                            </Group>
+                                        </Menu.Dropdown>
+                                    </Menu>
                                 </motion.div>
 
                                 <motion.div
@@ -939,7 +1063,7 @@ const BlogCard = memo(({ blog }) => {
                                     whileTap={{ scale: 0.9 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                 >
-                                    <Tooltip label="Comments" position="top" withArrow>
+                                    <Tooltip label="Comments" position="top" withArrow zIndex={10000} withinPortal>
                                         <UnstyledButton
                                             onClick={toggleComments}
                                             style={{
@@ -962,36 +1086,38 @@ const BlogCard = memo(({ blog }) => {
                                     </Tooltip>
                                 </motion.div>
 
-                                <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                >
-                                    <Tooltip label="Download as Image" position="top" withArrow>
-                                        <ActionIcon
-                                            variant="transparent"
-                                            onClick={handleDownloadImage}
-                                            loading={downloading}
-                                            size="lg"
-                                            style={{
-                                                color: 'var(--mantine-color-gray-6)',
-                                                '&:hover': {
-                                                    color: 'var(--mantine-color-pink-6)',
-                                                    backgroundColor: 'var(--mantine-color-pink-0)'
-                                                }
-                                            }}
-                                        >
-                                            <Download size={20} />
-                                        </ActionIcon>
-                                    </Tooltip>
-                                </motion.div>
+                                {user && (
+                                    <motion.div
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                                    >
+                                        <Tooltip label="Download as Image" position="top" withArrow zIndex={10000} withinPortal>
+                                            <ActionIcon
+                                                variant="transparent"
+                                                onClick={handleDownloadImage}
+                                                loading={downloading}
+                                                size="lg"
+                                                style={{
+                                                    color: 'var(--mantine-color-gray-6)',
+                                                    '&:hover': {
+                                                        color: 'var(--mantine-color-pink-6)',
+                                                        backgroundColor: 'var(--mantine-color-pink-0)'
+                                                    }
+                                                }}
+                                            >
+                                                <Download size={20} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    </motion.div>
+                                )}
 
                                 <motion.div
                                     whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.9 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                 >
-                                    <Tooltip label="Share Link" position="top" withArrow>
+                                    <Tooltip label="Share Link" position="top" withArrow zIndex={10000} withinPortal>
                                         <ActionIcon
                                             variant="transparent"
                                             onClick={handleShare}
@@ -1018,7 +1144,7 @@ const BlogCard = memo(({ blog }) => {
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                         >
-                                            <Tooltip label="Edit post" position="top" withArrow>
+                                            <Tooltip label="Edit post" position="top" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
                                                     variant="transparent"
                                                     color="blue"
@@ -1041,7 +1167,7 @@ const BlogCard = memo(({ blog }) => {
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                         >
-                                            <Tooltip label="Delete post" position="top" withArrow>
+                                            <Tooltip label="Delete post" position="top" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
                                                     variant="transparent"
                                                     color="red"

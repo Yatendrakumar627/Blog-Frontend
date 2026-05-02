@@ -59,10 +59,6 @@ const Profile = () => {
     const [pdfLoading, setPdfLoading] = useState(false);
 
     useEffect(() => {
-        // Observer removed in favor of Virtuoso endReached
-    }, []);
-
-    useEffect(() => {
         if (!username && currentUser) {
             navigate(`/profile/${currentUser.username}`, { replace: true });
         } else if (profileId) {
@@ -727,12 +723,10 @@ const Profile = () => {
                                         border: '5px solid var(--mantine-color-body)',
                                         backgroundColor: 'var(--mantine-color-body)',
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                                        width: '200px !important',
-                                        height: '200px !important',
-                                        minWidth: '200px !important',
-                                        minHeight: '200px !important',
-                                        maxWidth: '200px !important',
-                                        maxHeight: '200px !important',
+                                        width: 200,
+                                        height: 200,
+                                        minWidth: 200,
+                                        minHeight: 200,
                                     }}
                                 >
                                     {profileUser.username?.[0]?.toUpperCase()}
@@ -821,27 +815,20 @@ const Profile = () => {
                             variant="outline"
                             radius="md"
                             color="blue"
-                            styles={(theme) => ({
-                                root: { marginTop: theme.spacing.sm },
+                            styles={{
+                                root: { marginTop: 'var(--mantine-spacing-sm)' },
                                 list: {
                                     borderBottom: 'none',
-                                    marginBottom: theme.spacing.lg
+                                    marginBottom: 'var(--mantine-spacing-lg)'
                                 },
                                 tab: {
                                     backgroundColor: 'transparent',
-                                    color: theme.colors.gray[5],
+                                    color: 'var(--mantine-color-dimmed)',
                                     border: '1px solid transparent',
-                                    fontSize: theme.fontSizes.md,
-                                    '&[data-active]': {
-                                        backgroundColor: theme.colors.dark[6],
-                                        color: theme.white,
-                                        borderColor: theme.colors.dark[4],
-                                    },
-                                    '&:hover': {
-                                        backgroundColor: theme.colors.dark[5]
-                                    }
-                                }
-                            })}
+                                    fontSize: 'var(--mantine-font-size-md)',
+                                    transition: 'all 0.2s ease',
+                                },
+                            }}
                         >
                             <Tabs.List grow={isMobile} style={{ flexWrap: 'nowrap', overflowX: 'auto', scrollbarWidth: 'none' }}>
                                 <Tabs.Tab value="posts" leftSection={<IconArticle size={18} />}>
