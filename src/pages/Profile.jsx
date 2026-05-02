@@ -1,19 +1,18 @@
 import { Container, Title, Button, Group, Card, Text, Avatar, Stack, Center, Modal, Tabs, FileInput, TextInput, Textarea, Paper, Box, BackgroundImage, Flex, ActionIcon, Divider, Indicator, ScrollArea } from '@mantine/core';
 import AppLoader from '../components/AppLoader';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import api from '../api/axios';
 import useAuthStore from '../store/authStore';
 import { useParams } from 'react-router-dom';
 // import { jsPDF } from 'jspdf'; // Dynamically imported
-import { IconUserPlus, IconUserCheck, IconDownload, IconEdit, IconHeart, IconArticle, IconSettings, IconUpload, IconX, IconLink, IconBookmark, IconMessage } from '@tabler/icons-react';
+import { IconUserPlus, IconUserCheck, IconDownload, IconEdit, IconHeart, IconArticle, IconSettings, IconUpload, IconX, IconLink, IconBookmark, IconMessage, IconPhoto } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useNavigate } from 'react-router-dom';
 import UserCard from '../components/UserCard';
 import BlogCard from '../components/BlogCard';
 import { usePosts } from '../hooks/usePosts';
 import { useProfile } from '../hooks/useProfile';
-import { Virtuoso } from 'react-virtuoso';
 
 const Profile = () => {
     const { user: currentUser, login, logout } = useAuthStore(); // login function to update context user if needed
@@ -21,6 +20,7 @@ const Profile = () => {
     const navigate = useNavigate();
     const [followLoading, setFollowLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('posts');
+    const [selectedPostIndex, setSelectedPostIndex] = useState(null); // index into blogs[]
     const isMobile = useMediaQuery('(max-width: 48em)');
     const [isFollowing, setIsFollowing] = useState(false);
 
@@ -57,6 +57,7 @@ const Profile = () => {
 
     // PDF Loading State
     const [pdfLoading, setPdfLoading] = useState(false);
+
 
     useEffect(() => {
         if (!username && currentUser) {
@@ -842,6 +843,55 @@ const Profile = () => {
                                 </Tabs.Tab>
                             </Tabs.List>
 
+                            {/* ── Instagram-style Post Feed Viewer ── */}
+                            <Modal
+                                opened={selectedPostIndex !== null}
+                                onClose={() => setSelectedPostIndex(null)}
+                                fullScreen
+                                zIndex={3000}
+                                padding={0}
+                                withCloseButton={false}
+                                overlayProps={{ backgroundOpacity: 0, blur: 0 }}
+                                styles={{
+                                    content: {
+                                        background: 'var(--mantine-color-body)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                    },
+                                    body: { padding: 0, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+                                }}
+                            >
+                                {/* Top bar */}
+                                <Box style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '10px 16px',
+                                    borderBottom: '1px solid var(--mantine-color-default-border)',
+                                    flexShrink: 0,
+                                    position: 'sticky', top: 0, zIndex: 10,
+                                    background: 'var(--mantine-color-body)',
+                                }}>
+                                    <ActionIcon variant="subtle" color="gray" radius="xl" size="lg" onClick={() => setSelectedPostIndex(null)}>
+                                        <IconX size={20} />
+                                    </ActionIcon>
+                                    <Text fw={700} size="md">Posts</Text>
+                                </Box>
+
+                                {/* Scrollable feed starting from tapped post */}
+                                <Box style={{ flex: 1, overflowY: 'auto' }} pt="sm">
+                                    {selectedPostIndex !== null && blogs.slice(selectedPostIndex).map((blog, i) => (
+                                        <Box key={blog._id} pb="xs">
+                                            <BlogCard blog={blog} />
+                                        </Box>
+                                    ))}
+                                    {hasNextPage && !isFetchingNextPage && (
+                                        <Center py="md">
+                                            <Button variant="subtle" size="sm" onClick={() => fetchNextPage()}>Load more</Button>
+                                        </Center>
+                                    )}
+                                    {isFetchingNextPage && <Center py="md"><AppLoader size="sm" /></Center>}
+                                </Box>
+                            </Modal>
+
                             {/* Common Panel Content logic since structure is same for all tabs */}
                             <Tabs.Panel value={activeTab}>
                                 {blogsLoading && blogs.length === 0 ? (
@@ -851,28 +901,97 @@ const Profile = () => {
                                         No {activeTab === 'posts' ? 'posts' : activeTab === 'liked' ? 'liked posts' : 'saved posts'} found.
                                     </Center>
                                 ) : (
-                                    <Virtuoso
-                                        useWindowScroll
-                                        data={blogs}
-                                        computeItemKey={(index, item) => item._id}
-                                        itemContent={(index, blog) => (
-                                            <div style={{ paddingBottom: '16px' }}>
-                                                <BlogCard blog={blog} />
-                                            </div>
+                                    <>
+                                        {/* 3-column image grid */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px' }}>
+                                            {blogs.map((blog, index) => {
+                                                const thumb = blog.backgroundImageUrl || blog.mediaUrl || null;
+                                                const gradient = blog.backgroundGradient || 'linear-gradient(135deg, #1a1b2e 0%, #16213e 50%, #0f3460 100%)';
+                                                const text = blog.title || blog.content?.replace(/<[^>]+>/g, '').trim().slice(0, 80) || '';
+
+                                                return (
+                                                    <div
+                                                        key={blog._id}
+                                                        onClick={() => setSelectedPostIndex(index)}
+                                                        className="profile-grid-cell"
+                                                        style={{
+                                                            position: 'relative',
+                                                            aspectRatio: '1 / 1',
+                                                            overflow: 'hidden',
+                                                            cursor: 'pointer',
+                                                            background: thumb ? 'transparent' : gradient,
+                                                        }}
+                                                    >
+                                                        {/* Thumbnail image */}
+                                                        {thumb ? (
+                                                            <img
+                                                                src={thumb}
+                                                                alt={blog.title || 'post'}
+                                                                style={{
+                                                                    width: '100%', height: '100%',
+                                                                    objectFit: 'cover',
+                                                                    display: 'block',
+                                                                    transition: 'transform 0.3s ease',
+                                                                }}
+                                                                className="profile-grid-img"
+                                                            />
+                                                        ) : (
+                                                            /* Text preview on gradient bg */
+                                                            <div style={{
+                                                                width: '100%', height: '100%',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                padding: '10px',
+                                                                background: gradient,
+                                                            }}>
+                                                                <p style={{
+                                                                    color: '#fff',
+                                                                    fontSize: 'clamp(8px, 1.8vw, 12px)',
+                                                                    fontWeight: 600,
+                                                                    textAlign: 'center',
+                                                                    lineHeight: 1.4,
+                                                                    margin: 0,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 5,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                    textShadow: '0 1px 6px rgba(0,0,0,0.8)',
+                                                                    fontFamily: "'Playfair Display', serif",
+                                                                }}>
+                                                                    {text}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Hover overlay */}
+                                                        <div className="profile-grid-overlay" style={{
+                                                            position: 'absolute', inset: 0,
+                                                            background: 'transparent',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            gap: '18px',
+                                                            opacity: 0,
+                                                            transition: 'opacity 0.2s ease, background 0.2s ease',
+                                                        }}>
+                                                            <span style={{ color: '#fff', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                                                                <IconHeart size={17} fill="white" stroke={0} /> {blog.likes?.length || 0}
+                                                            </span>
+                                                            <span style={{ color: '#fff', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+                                                                <IconPhoto size={17} /> {blog.commentsCount || 0}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {isFetchingNextPage && (
+                                            <Center py="md"><AppLoader size="sm" /></Center>
                                         )}
-                                        endReached={() => {
-                                            if (hasNextPage && !isFetchingNextPage) {
-                                                fetchNextPage();
-                                            }
-                                        }}
-                                        components={{
-                                            Footer: () => (
-                                                <div style={{ height: '50px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                                    {isFetchingNextPage && <AppLoader size="sm" />}
-                                                </div>
-                                            )
-                                        }}
-                                    />
+                                        {hasNextPage && !isFetchingNextPage && (
+                                            <Center mt="sm" mb="md">
+                                                <Button variant="subtle" size="sm" onClick={() => fetchNextPage()}>Load more</Button>
+                                            </Center>
+                                        )}
+                                    </>
                                 )}
                             </Tabs.Panel>
                         </Tabs>

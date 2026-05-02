@@ -56,7 +56,14 @@ const BlogCard = memo(({ blog }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [displayBlog, setDisplayBlog] = useState(blog);
     const [downloading, setDownloading] = useState(false);
+    const [reactionMenuOpen, setReactionMenuOpen] = useState(false);
+    const [menuLocked, setMenuLocked] = useState(false);
     const cardRef = useRef(null);
+
+    const handleReactionMenuChange = (isOpen) => {
+        if (menuLocked && isOpen) return;
+        setReactionMenuOpen(isOpen);
+    };
 
     const handleLike = (reactionType = null) => {
         if (!user) {
@@ -375,12 +382,19 @@ const BlogCard = memo(({ blog }) => {
                     });
                     
                     const contentDisplay = contentDiv.querySelector('.blog-content-display');
-                    if (contentDisplay) {
-                        const newFontSize = displayBlog.displayMode === 'Poetry' ? '12px' : '16px';
-                        contentDisplay.style.fontSize = newFontSize;
-                        contentDisplay.querySelectorAll('*').forEach(el => {
-                            el.style.fontSize = newFontSize;
-                        });
+                    const origContentDisplay = cardElement.querySelector('.blog-content-display');
+                    if (contentDisplay && origContentDisplay) {
+                        // Use the computed base font size from the actual web view to maintain proportion
+                        const computedStyles = window.getComputedStyle(origContentDisplay);
+                        
+                        // We apply a slight scale factor (1.2) because the download canvas wrapper is 480px 
+                        // which is usually wider than the mobile/desktop web view column.
+                        const currentSize = parseFloat(computedStyles.fontSize) || 16;
+                        contentDisplay.style.fontSize = `${currentSize * 1.2}px`;
+                        contentDisplay.style.lineHeight = computedStyles.lineHeight;
+                        
+                        // IMPORTANT: We do NOT iterate over querySelectorAll('*') 
+                        // because that destroys custom font sizes set by the user in the rich text editor.
                     }
                 }
             } else {
@@ -388,13 +402,17 @@ const BlogCard = memo(({ blog }) => {
                 const contentDiv = cardClone.querySelector('.blog-post-content');
                 if (contentDiv) {
                     const textContainer = contentDiv.querySelector('div') || contentDiv;
-                    if (textContainer) {
-                        textContainer.style.fontSize = '12px';
-                        textContainer.style.lineHeight = '1.6';
+                    const origContentDiv = cardElement.querySelector('.blog-post-content');
+                    const origTextContainer = origContentDiv ? (origContentDiv.querySelector('div') || origContentDiv) : null;
+                    if (textContainer && origTextContainer) {
+                        const computedStyles = window.getComputedStyle(origTextContainer);
+                        const currentSize = parseFloat(computedStyles.fontSize) || 16;
+                        textContainer.style.fontSize = `${currentSize * 1.1}px`;
+                        textContainer.style.lineHeight = computedStyles.lineHeight || '1.6';
                         textContainer.style.color = isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
                         textContainer.style.textAlign = 'left';
-                        textContainer.style.paddingLeft = '15px';
-                        textContainer.style.borderLeft = '2px solid #e64980'; // Pink line
+                        textContainer.style.paddingTop = '15px';
+                        textContainer.style.borderTop = '2px solid #e64980'; // Pink horizontal line
                         
                         // Add subtle aesthetic quotes
                         const quoteIcon = document.createElement('div');
@@ -556,14 +574,7 @@ const BlogCard = memo(({ blog }) => {
         return user?.username || 'unknown';
     };
 
-    // Calculate reading time based on word count (avg 200 words per minute)
-    const getReadingTime = (content) => {
-        if (!content) return '< 1 min read';
-        const text = content.replace(/<[^>]+>/g, '').trim();
-        const wordCount = text.split(/\s+/).filter(Boolean).length;
-        const minutes = Math.ceil(wordCount / 200);
-        return minutes < 1 ? '< 1 min read' : `${minutes} min read`;
-    };
+
 
     const isAuthor = user && blog && blog.author && (user._id === (blog.author._id || blog.author));
 
@@ -577,7 +588,7 @@ const BlogCard = memo(({ blog }) => {
             whileHover={{ y: -2 }}
         >
             <>
-                <Modal opened={opened} onClose={close} title="Join the Conversation!" centered radius="md">
+                <Modal opened={opened} onClose={close} title="Join the Conversation!" centered radius="md" zIndex={10000}>
                     <Stack align="center" ta="center">
                         <Text>You need to be logged in to like, comment, or download posts.</Text>
                         <Group>
@@ -593,6 +604,7 @@ const BlogCard = memo(({ blog }) => {
                     title="Delete Comment"
                     centered
                     radius="md"
+                    zIndex={10000}
                 >
                     <Stack>
                         <Text size="sm">Are you sure you want to delete this comment? This action cannot be undone.</Text>
@@ -609,6 +621,7 @@ const BlogCard = memo(({ blog }) => {
                     title="Delete Post"
                     centered
                     radius="md"
+                    zIndex={10000}
                 >
                     <Stack>
                         <Text size="sm">Are you sure you want to delete this post? This action cannot be undone.</Text>
@@ -691,13 +704,16 @@ const BlogCard = memo(({ blog }) => {
                                                     }}
                                                 />
                                             </Indicator>
-                                            <div>
+                                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
                                                 <Text
                                                     fw={600}
                                                     size="sm"
                                                     style={{
                                                         color: 'var(--mantine-color-text)',
-                                                        lineHeight: 1.2
+                                                        lineHeight: 1.2,
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
                                                     }}
                                                 >
                                                     {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
@@ -707,15 +723,16 @@ const BlogCard = memo(({ blog }) => {
                                                     c="dimmed"
                                                     style={{
                                                         fontSize: '11px',
-                                                        marginTop: '2px'
+                                                        marginTop: '2px',
+                                                        whiteSpace: 'nowrap'
                                                     }}
                                                 >
-                                                    {dayjs(displayBlog.createdAt).fromNow()} · {getReadingTime(displayBlog.content)}
+                                                    {dayjs(displayBlog.createdAt).fromNow()}
                                                 </Text>
                                             </div>
                                         </UnstyledButton>
                                     </motion.div>
-                                    <Group gap="xs" wrap="nowrap">
+                                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                                         <Badge
                                             color="violet"
                                             variant="light"
@@ -834,12 +851,15 @@ const BlogCard = memo(({ blog }) => {
                                                     }}
                                                 />
                                             </Indicator>
-                                            <div>
+                                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
                                                 <Text
                                                     fw={600}
                                                     style={{
                                                         color: 'var(--mantine-color-text)',
-                                                        lineHeight: 1.2
+                                                        lineHeight: 1.2,
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
                                                     }}
                                                 >
                                                     {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
@@ -849,15 +869,16 @@ const BlogCard = memo(({ blog }) => {
                                                     c="dimmed"
                                                     style={{
                                                         fontSize: '11px',
-                                                        marginTop: '2px'
+                                                        marginTop: '2px',
+                                                        whiteSpace: 'nowrap'
                                                     }}
                                                 >
-                                                    {dayjs(displayBlog.createdAt).fromNow()} · {getReadingTime(displayBlog.content)}
+                                                    {dayjs(displayBlog.createdAt).fromNow()}
                                                 </Text>
                                             </div>
                                         </UnstyledButton>
                                     </motion.div>
-                                    <Group gap="xs" wrap="nowrap">
+                                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                                         <Badge
                                             color="pink"
                                             variant="light"
@@ -1083,21 +1104,41 @@ const BlogCard = memo(({ blog }) => {
                             <Group
                                 className="no-export"
                                 mt={(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? 'sm' : 'md'}
-                                gap="sm"
+                                gap="xs"
                                 px={0}
+                                wrap="nowrap"
                                 style={{
                                     borderTop: '1px solid var(--mantine-color-gray-2)',
-                                    paddingTop: '12px'
+                                    paddingTop: '12px',
+                                    overflowX: 'auto',
+                                    scrollbarWidth: 'none',
+                                    msOverflowStyle: 'none'
                                 }}
                             >
                                 <motion.div
                                     whileHover={{ scale: 1.05 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                 >
-                                    <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400} position="top-start" withArrow withinPortal>
+                                    <Menu 
+                                        shadow="md" 
+                                        width={200} 
+                                        trigger="hover" 
+                                        opened={reactionMenuOpen}
+                                        onChange={handleReactionMenuChange}
+                                        openDelay={100} 
+                                        closeDelay={400} 
+                                        position="top-start" 
+                                        withArrow 
+                                        withinPortal
+                                    >
                                         <Menu.Target>
                                             <UnstyledButton
-                                                onClick={() => handleLike()}
+                                                onClick={() => {
+                                                    handleLike();
+                                                    setReactionMenuOpen(false);
+                                                    setMenuLocked(true);
+                                                    setTimeout(() => setMenuLocked(false), 500);
+                                                }}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -1141,6 +1182,9 @@ const BlogCard = memo(({ blog }) => {
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleLike(reaction.value);
+                                                                setReactionMenuOpen(false);
+                                                                setMenuLocked(true);
+                                                                setTimeout(() => setMenuLocked(false), 500);
                                                             }}
                                                             style={{
                                                                 fontSize: '22px',
