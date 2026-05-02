@@ -277,8 +277,9 @@ const BlogCard = memo(({ blog }) => {
             const toDataURL = async (url) => {
                 if (!url || url.startsWith('data:')) return url;
                 try {
-                    // Always use proxy for non-data URLs to avoid CORS issues in canvas
-                    const fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(url)}`;
+                    // Create an absolute URL for the proxy
+                    const absoluteUrl = new URL(url, window.location.origin).href;
+                    const fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(absoluteUrl)}`;
 
                     const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -290,9 +291,9 @@ const BlogCard = memo(({ blog }) => {
                     });
                 } catch (err) {
                     console.warn('Failed to convert image to data URL via proxy:', url, err);
-                    // Fallback to direct fetch if proxy fails (might work for same-origin)
+                    // Fallback to direct fetch if proxy fails
                     try {
-                        const response = await fetch(url);
+                        const response = await fetch(url, { mode: 'cors' });
                         if (!response.ok) throw new Error(`Direct fetch failed: ${response.status}`);
                         const blob = await response.blob();
                         return new Promise((resolve) => {
@@ -308,16 +309,35 @@ const BlogCard = memo(({ blog }) => {
             };
 
             // Pre-convert ALL images in the clone to base64 data URLs
-            // This completely bypasses CORS issues for html2canvas
             const allImages = cardClone.querySelectorAll('img');
             await Promise.all(
                 Array.from(allImages).map(async (img) => {
                     if (img.src && !img.src.startsWith('data:')) {
-                        const dataUrl = await toDataURL(img.src);
-                        img.src = dataUrl;
+                        const originalSrc = img.src;
+                        const dataUrl = await toDataURL(originalSrc);
+                        
+                        // Create a promise to wait for this specific image to load its data URL
+                        return new Promise((resolve) => {
+                            img.onload = resolve;
+                            img.onerror = resolve; // Continue even on error
+                            img.src = dataUrl;
+                            // If it's already a data URL or loaded, resolve immediately
+                            if (img.complete) resolve();
+                        });
                     }
                 })
             );
+
+            // Fix for aspectRatio which html2canvas sometimes struggles with
+            const aspectRatioElements = cardClone.querySelectorAll('[style*="aspect-ratio"]');
+            aspectRatioElements.forEach(el => {
+                const originalEl = Array.from(cardElement.querySelectorAll('*')).find(orig => orig.className === el.className && orig.innerText === el.innerText);
+                if (originalEl) {
+                    const rect = originalEl.getBoundingClientRect();
+                    el.style.height = `${rect.height * (1080 / rect.width)}px`;
+                    el.style.aspectRatio = 'auto';
+                }
+            });
 
             // Force larger font size for the content
             const contentDiv = cardClone.querySelector('.blog-post-content');
