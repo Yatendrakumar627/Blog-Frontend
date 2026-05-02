@@ -239,14 +239,18 @@ const BlogCard = memo(({ blog }) => {
             }
 
             // Create a wrapper for the premium download look
+            const isTextOnly = displayBlog.displayMode !== 'Poetry' && displayBlog.displayMode !== 'Shayari';
+
+            // Create a wrapper for the premium download look
             const wrapper = document.createElement('div');
             wrapper.style.position = 'fixed';
             wrapper.style.left = '-9999px';
             wrapper.style.top = '0';
-            wrapper.style.width = '1080px'; // Instagram Portrait match
-            wrapper.style.minHeight = '1350px'; // 4:5 Aspect Ratio minimum
+            wrapper.style.width = '480px'; // Slimmer width matches reference
+            wrapper.style.minHeight = isTextOnly ? '405px' : '675px'; // 4:3 for text, 4:5 for poetry
             wrapper.style.height = 'auto'; // Allow expansion
-            wrapper.style.padding = '80px';
+            wrapper.style.padding = '20px';
+            wrapper.style.paddingBottom = '25px';
             wrapper.style.boxSizing = 'border-box'; // Ensure padding is included in width
             wrapper.style.display = 'flex';
             wrapper.style.flexDirection = 'column';
@@ -259,19 +263,15 @@ const BlogCard = memo(({ blog }) => {
                 window.getComputedStyle(document.documentElement).getPropertyValue('color-scheme') === 'dark';
 
             if (isDarkMode) {
-                // Spotlight effect: Lighter center, dark edges
-                wrapper.style.background = 'linear-gradient(to bottom right, #2a2a2a 0%, #000000 100%)';
+                // Simple solid dark background
+                wrapper.style.background = '#15151a';
             } else {
-                // Light mode spotlight: White center, soft grey edges
-                wrapper.style.background = 'linear-gradient(to bottom right, #ffffff 0%, #e6e9f0 100%)';
+                // Simple solid light background
+                wrapper.style.background = '#f4f4f8';
             }
 
             // Clone the card
             const cardClone = cardElement.cloneNode(true);
-
-            // Remove interactive elements from clone
-            const interactiveElements = cardClone.querySelectorAll('button, [role="button"], .mantine-Collapse-root');
-            interactiveElements.forEach(el => el.style.display = 'none');
 
             // Helper: Convert an image URL to a base64 data URL via the server proxy
             const toDataURL = async (url) => {
@@ -308,6 +308,24 @@ const BlogCard = memo(({ blog }) => {
                 }
             };
 
+            // Helper to fix html2canvas object-fit distortion
+            const applyObjectFitFix = (imgElem, srcUrl) => {
+                if (imgElem.style.objectFit === 'cover' || imgElem.alt === 'Background') {
+                    const div = document.createElement('div');
+                    div.style.cssText = imgElem.style.cssText;
+                    div.style.backgroundImage = `url("${srcUrl}")`;
+                    div.style.backgroundSize = imgElem.style.objectFit || 'cover';
+                    div.style.backgroundPosition = imgElem.style.objectPosition || 'center';
+                    div.style.backgroundRepeat = 'no-repeat';
+                    div.style.objectFit = '';
+                    div.style.objectPosition = '';
+                    if (imgElem.className) div.className = imgElem.className;
+                    if (imgElem.parentNode) {
+                        imgElem.parentNode.replaceChild(div, imgElem);
+                    }
+                }
+            };
+
             // Pre-convert ALL images in the clone to base64 data URLs
             const allImages = cardClone.querySelectorAll('img');
             await Promise.all(
@@ -316,40 +334,85 @@ const BlogCard = memo(({ blog }) => {
                         const originalSrc = img.src;
                         const dataUrl = await toDataURL(originalSrc);
                         
-                        // Create a promise to wait for this specific image to load its data URL
                         return new Promise((resolve) => {
-                            img.onload = resolve;
-                            img.onerror = resolve; // Continue even on error
-                            img.src = dataUrl;
-                            // If it's already a data URL or loaded, resolve immediately
-                            if (img.complete) resolve();
+                            const tempImg = new window.Image();
+                            tempImg.onload = () => {
+                                img.src = dataUrl;
+                                applyObjectFitFix(img, dataUrl);
+                                resolve();
+                            };
+                            tempImg.onerror = () => {
+                                img.src = dataUrl;
+                                applyObjectFitFix(img, dataUrl);
+                                resolve();
+                            };
+                            tempImg.src = dataUrl;
                         });
+                    } else if (img.src && img.src.startsWith('data:')) {
+                        applyObjectFitFix(img, img.src);
                     }
                 })
             );
 
-            // Fix for aspectRatio which html2canvas sometimes struggles with
-            const aspectRatioElements = cardClone.querySelectorAll('[style*="aspect-ratio"]');
-            aspectRatioElements.forEach(el => {
-                const originalEl = Array.from(cardElement.querySelectorAll('*')).find(orig => orig.className === el.className && orig.innerText === el.innerText);
-                if (originalEl) {
-                    const rect = originalEl.getBoundingClientRect();
-                    el.style.height = `${rect.height * (1080 / rect.width)}px`;
-                    el.style.aspectRatio = 'auto';
-                }
-            });
+            // Fix vw units for Poetry/Shayari natively for 540px
+            if (!isTextOnly) {
+                const contentDiv = cardClone.querySelector('.blog-post-content');
+                if (contentDiv) {
+                    const innerFlex = Array.from(contentDiv.querySelectorAll('div')).find(el => String(el.style.zIndex) === '1' && String(el.style.display) === 'flex');
+                    if (innerFlex) {
+                        innerFlex.style.padding = '30px';
+                    }
 
-            // Force larger font size for the content
-            const contentDiv = cardClone.querySelector('.blog-post-content');
-            if (contentDiv) {
-                const textElements = contentDiv.querySelectorAll('*');
-                textElements.forEach(el => {
-                    el.style.fontSize = '30px'; // Massive scale up to fill space
-                    el.style.lineHeight = '1.6';
-                });
-                // Also target the container itself in case text is direct
-                contentDiv.style.fontSize = '30px';
-                contentDiv.style.lineHeight = '1.6';
+                    const quotes = Array.from(contentDiv.querySelectorAll('div')).filter(el => String(el.style.pointerEvents) === 'none');
+                    quotes.forEach(quote => {
+                        if (quote.textContent.includes('"')) {
+                            quote.style.fontSize = '80px';
+                            if (quote.style.top) quote.style.top = '10px';
+                            if (quote.style.bottom) quote.style.bottom = '10px';
+                            if (quote.style.left) quote.style.left = '10px';
+                            if (quote.style.right) quote.style.right = '10px';
+                        }
+                    });
+                    
+                    const contentDisplay = contentDiv.querySelector('.blog-content-display');
+                    if (contentDisplay) {
+                        const newFontSize = displayBlog.displayMode === 'Poetry' ? '12px' : '16px';
+                        contentDisplay.style.fontSize = newFontSize;
+                        contentDisplay.querySelectorAll('*').forEach(el => {
+                            el.style.fontSize = newFontSize;
+                        });
+                    }
+                }
+            } else {
+                // Simple Text Post aesthetic match
+                const contentDiv = cardClone.querySelector('.blog-post-content');
+                if (contentDiv) {
+                    const textContainer = contentDiv.querySelector('div') || contentDiv;
+                    if (textContainer) {
+                        textContainer.style.fontSize = '12px';
+                        textContainer.style.lineHeight = '1.6';
+                        textContainer.style.color = isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
+                        textContainer.style.textAlign = 'left';
+                        textContainer.style.paddingLeft = '15px';
+                        textContainer.style.borderLeft = '2px solid #e64980'; // Pink line
+                        
+                        // Add subtle aesthetic quotes
+                        const quoteIcon = document.createElement('div');
+                        quoteIcon.innerHTML = '”';
+                        quoteIcon.style.position = 'absolute';
+                        quoteIcon.style.top = '15px';
+                        quoteIcon.style.right = '25px';
+                        quoteIcon.style.fontSize = '60px';
+                        quoteIcon.style.fontFamily = 'Georgia, serif';
+                        quoteIcon.style.color = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                        quoteIcon.style.zIndex = '0';
+                        quoteIcon.style.pointerEvents = 'none';
+                        quoteIcon.style.lineHeight = '1';
+                        
+                        cardClone.style.position = 'relative';
+                        cardClone.appendChild(quoteIcon);
+                    }
+                }
             }
 
             // Style the card clone inside the wrapper
@@ -360,20 +423,17 @@ const BlogCard = memo(({ blog }) => {
             cardClone.style.flexDirection = 'column';
             cardClone.style.marginTop = 'auto'; // Center vertically if space allows
             cardClone.style.marginBottom = 'auto'; // Center vertically if space allows
-            // Enhance shadow for "floating" effect
-            cardClone.style.boxShadow = isDarkMode
-                ? '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1)'
-                : '0 40px 80px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)';
-            cardClone.style.borderRadius = '32px'; // Larger radius
-            // Remove default border to let shadow/ring define edges
-            cardClone.style.border = 'none';
+            // Simple flat aesthetic
+            cardClone.style.boxShadow = 'none';
+            cardClone.style.borderRadius = '16px'; 
+            cardClone.style.border = isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)';
             cardClone.style.overflow = 'visible'; // Allow content to show
             cardClone.style.transform = 'none';
             cardClone.style.margin = '0 auto';
-            cardClone.style.padding = '80px'; // Massive internal padding to consume area
+            cardClone.style.padding = '30px'; // Standard internal padding
 
             if (isDarkMode) {
-                cardClone.style.backgroundColor = '#161616'; // Slightly lighter than pure black bg
+                cardClone.style.backgroundColor = '#121215'; // Very dark background like image
                 cardClone.style.color = 'rgba(255, 255, 255, 0.9)';
             } else {
                 cardClone.style.backgroundColor = '#ffffff';
@@ -382,68 +442,76 @@ const BlogCard = memo(({ blog }) => {
 
             // Add Branding / Footer
             const footer = document.createElement('div');
-            footer.style.marginTop = '30px';
+            footer.style.marginTop = '15px';
             footer.style.flexShrink = '0'; // Prevent footer compression
             footer.style.textAlign = 'center';
             footer.style.display = 'flex';
             footer.style.flexDirection = 'column';
             footer.style.alignItems = 'center';
-            footer.style.gap = '10px';
-            footer.style.opacity = '0.9'; // Subtle transparency
-
-            // Elegant separator
-            const separator = document.createElement('span');
-            separator.innerHTML = '•';
-            separator.style.color = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
-            separator.style.fontSize = '20px';
-            separator.style.lineHeight = '1';
-
-            const brandBox = document.createElement('div');
-            brandBox.style.display = 'flex';
-            brandBox.style.alignItems = 'center';
-            brandBox.style.gap = '12px';
+            footer.style.gap = '5px';
+            
+            // Heart Icon
+            const heartIcon = document.createElement('div');
+            heartIcon.innerHTML = '♥';
+            heartIcon.style.color = '#e64980'; // Pink heart
+            heartIcon.style.fontSize = '10px';
+            heartIcon.style.marginBottom = '2px';
 
             const brandName = document.createElement('div');
-            brandName.style.color = isDarkMode ? '#fff' : '#000';
-            brandName.style.fontSize = '28px'; // Premium size
-            brandName.style.fontWeight = '900';
-            brandName.style.letterSpacing = '6px'; // Elegant tracking
+            brandName.style.color = '#e64980'; // Pink brand text
+            brandName.style.fontSize = '12px';
+            brandName.style.fontWeight = '800';
+            brandName.style.letterSpacing = '5px';
             brandName.style.textTransform = 'uppercase';
             brandName.innerHTML = 'DIL KI BAAT';
 
             const dateInfo = document.createElement('div');
-            dateInfo.style.color = isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)';
-            dateInfo.style.fontSize = '18px';
+            dateInfo.style.color = isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+            dateInfo.style.fontSize = '9px';
             dateInfo.style.fontWeight = '500';
             dateInfo.style.letterSpacing = '1px';
             dateInfo.style.fontFamily = "'Inter', sans-serif";
-            dateInfo.style.marginTop = '4px';
-            dateInfo.innerHTML = dayjs().format('DD MMMM YYYY');
+            dateInfo.innerHTML = `- ${dayjs().format('DD MMM YYYY')} -`;
 
-            brandBox.appendChild(brandName);
-
-            footer.appendChild(separator);
-            footer.appendChild(brandBox);
+            footer.appendChild(heartIcon);
+            footer.appendChild(brandName);
             footer.appendChild(dateInfo);
 
             wrapper.appendChild(cardClone);
             wrapper.appendChild(footer);
             document.body.appendChild(wrapper);
 
+            // Fix for aspectRatio which html2canvas ignores, and make it auto-adjustable
+            const elementsWithAspectRatio = wrapper.querySelectorAll('*');
+            elementsWithAspectRatio.forEach(el => {
+                if (el.style.aspectRatio && el.style.aspectRatio !== 'auto') {
+                    const match = el.style.aspectRatio.match(/(\d+)\s*\/\s*(\d+)/);
+                    if (match) {
+                        const w = parseFloat(match[1]);
+                        const h = parseFloat(match[2]);
+                        const width = el.offsetWidth;
+                        const expectedHeight = width * (h / w);
+                        
+                        // Set height to max of expected aspect ratio height or the actual scrollHeight to be auto-adjustable
+                        const finalHeight = Math.max(expectedHeight, el.scrollHeight);
+                        el.style.height = `${finalHeight}px`;
+                        el.style.aspectRatio = 'auto';
+                    }
+                }
+            });
+
             // Measure the actual height needed
             const actualHeight = wrapper.offsetHeight;
 
             const html2canvas = (await import('html2canvas')).default;
             const canvas = await html2canvas(wrapper, {
-                backgroundColor: isDarkMode ? '#000000' : '#ffffff',
-                scale: 2, // High resolution
+                backgroundColor: isDarkMode ? '#15151a' : '#f4f4f8',
+                scale: 2, // High resolution (480px * 2 = 960px output)
                 logging: true,
                 useCORS: true,
                 allowTaint: true,
-                width: 1080,
-                height: actualHeight,
-                windowWidth: 1080,
-                windowHeight: actualHeight,
+                width: 480,
+                windowWidth: 480,
                 ignoreElements: (element) => element.classList.contains('no-export'),
             });
 
@@ -584,6 +652,7 @@ const BlogCard = memo(({ blog }) => {
                             {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? (
                                 <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
                                     <motion.div
+                                        className="no-export"
                                         whileHover={{ scale: 1.02 }}
                                         transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                     >
@@ -672,6 +741,7 @@ const BlogCard = memo(({ blog }) => {
                                         </Badge>
                                         {!isAuthor && displayBlog.author?.privacySettings?.allowMessages !== false && (
                                             <motion.div
+                                                className="no-export"
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -694,6 +764,7 @@ const BlogCard = memo(({ blog }) => {
                                             </motion.div>
                                         )}
                                         <motion.div
+                                            className="no-export"
                                             whileHover={{ scale: 1.1 }}
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -725,6 +796,7 @@ const BlogCard = memo(({ blog }) => {
                             ) : (
                                 <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
                                     <motion.div
+                                        className="no-export"
                                         whileHover={{ scale: 1.02 }}
                                         transition={{ type: "spring", stiffness: 400, damping: 17 }}
                                     >
@@ -800,6 +872,7 @@ const BlogCard = memo(({ blog }) => {
                                         </Badge>
                                         {!isAuthor && displayBlog.author?.privacySettings?.allowMessages !== false && (
                                             <motion.div
+                                                className="no-export"
                                                 whileHover={{ scale: 1.1 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -822,6 +895,7 @@ const BlogCard = memo(({ blog }) => {
                                             </motion.div>
                                         )}
                                         <motion.div
+                                            className="no-export"
                                             whileHover={{ scale: 1.1 }}
                                             whileTap={{ scale: 0.9 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -1007,6 +1081,7 @@ const BlogCard = memo(({ blog }) => {
 
                             {/* Actions - Enhanced with animations */}
                             <Group
+                                className="no-export"
                                 mt={(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? 'sm' : 'md'}
                                 gap="sm"
                                 px={0}
@@ -1212,7 +1287,7 @@ const BlogCard = memo(({ blog }) => {
                                 )}
                             </Group>
 
-                            <Collapse in={commentsOpen}>
+                            <Collapse in={commentsOpen} className="no-export">
                                 <Stack mt="md" gap="md">
                                     <Title order={6} c="dimmed">Comments</Title>
                                     {loadingComments ? (
