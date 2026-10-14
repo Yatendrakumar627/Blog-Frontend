@@ -1,7 +1,7 @@
 import { Stack, Title, Group, Text, Paper, Avatar, Textarea, ActionIcon, Indicator, Modal, Button } from '@mantine/core';
 import AppLoader from './AppLoader';
 import { Send, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDisclosure } from '@mantine/hooks';
 import api from '../api/axios';
@@ -20,7 +20,7 @@ const CommentSection = ({ blogId }) => {
     const [commentToDelete, setCommentToDelete] = useState(null);
     const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
-    const fetchComments = async () => {
+    const fetchComments = useCallback(async () => {
         try {
             setLoading(true);
             const { data } = await api.get(`/comments/${blogId}`);
@@ -30,13 +30,13 @@ const CommentSection = ({ blogId }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [blogId]);
 
     useEffect(() => {
         if (blogId) {
             fetchComments();
         }
-    }, [blogId]);
+    }, [blogId, fetchComments]);
 
     const handleComment = async (e) => {
         e.preventDefault();

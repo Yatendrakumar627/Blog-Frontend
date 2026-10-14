@@ -42,13 +42,13 @@
     margin-top: 0;
 }
 
-/* Ensure consistent text rendering */
+/* Ensure consistent text rendering while inheriting mode-specific typography */
 .blog-content-display {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-    text-align: justify;
-    color: var(--mantine-color-text);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    color: inherit;
 }
 
 /* Handle line breaks and spacing properly */
@@ -56,11 +56,18 @@
     line-height: 1.2;
 }
 
+.blog-content-display p,
+.blog-content-display .editor-paragraph,
 .blog-content-display .ProseMirror p {
-    margin-bottom: 0.8em;
-    line-height: 1.2;
+    margin-bottom: 0.6em;
+    line-height: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    text-align: inherit;
 }
 
+.blog-content-display p:last-child,
+.blog-content-display .editor-paragraph:last-child,
 .blog-content-display .ProseMirror p:last-child {
     margin-bottom: 0;
 }
@@ -68,47 +75,7 @@
 /* Mobile responsive styles */
 @media (max-width: 768px) {
     .blog-content-display {
-        font-size: 16px; /* Larger font on mobile for readability */
-        line-height: 1.7;
-        padding: 0 1rem;
-    }
-    
-    .blog-content-display p {
-        margin-bottom: 1em;
-        line-height: 1.7;
-    }
-    
-    .blog-content-display .editor-paragraph {
-        margin-bottom: 1em;
-        line-height: 1.7;
-    }
-    
-    .blog-content-display h1,
-    .blog-content-display h2,
-    .blog-content-display h3,
-    .blog-content-display h4,
-    .blog-content-display h5,
-    .blog-content-display h6 {
-        margin-bottom: 0.8em;
-        margin-top: 1.5em;
+        padding: 0 0.25rem;
     }
 }
 
-/* Small mobile styles */
-@media (max-width: 480px) {
-    .blog-content-display {
-        font-size: 18px; /* Even larger on very small screens */
-        line-height: 1.8;
-        padding: 0 0.5rem;
-    }
-    
-    .blog-content-display p {
-        margin-bottom: 1.2em;
-        line-height: 1.8;
-    }
-    
-    .blog-content-display .editor-paragraph {
-        margin-bottom: 1.2em;
-        line-height: 1.8;
-    }
-}

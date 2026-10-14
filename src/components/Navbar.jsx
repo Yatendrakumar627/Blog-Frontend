@@ -1,5 +1,5 @@
 import { Group, Button, Title, Box, ActionIcon, useMantineColorScheme, useComputedColorScheme, Indicator, Tooltip, Avatar, Text, Menu, UnstyledButton, Badge } from '@mantine/core';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { IconSun, IconMoon, IconBell, IconBellRinging, IconWriting, IconHome, IconUser, IconLogout, IconLogin, IconUserPlus, IconSettings, IconChevronDown, IconCrown, IconShield, IconMessage } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,6 @@ import './Navbar.css';
 const Navbar = () => {
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-    const location = useLocation();
 
     const { setColorScheme } = useMantineColorScheme();
     const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
@@ -47,26 +46,32 @@ const Navbar = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                 >
-                    <Title
-                        order={2}
-                        component={Link}
-                        to="/public-feed"
-                        fz={{ base: '1.4rem', sm: '1.6rem' }}
-                        style={{
-                            textDecoration: 'none',
-                            fontWeight: 800,
-                            letterSpacing: '-0.02em',
-                            background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 50%, #6366f1 100%)', // More vibrant gradient
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
-                            filter: 'drop-shadow(0 2px 10px rgba(236, 72, 153, 0.2))',
-                            position: 'relative',
-                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-                        }}
-                    >
-                        Dil Ki Baatein
-                    </Title>
+                    <Box>
+                        <Title
+                            order={2}
+                            component={Link}
+                            to="/public-feed"
+                            fz={{ base: '1.25rem', sm: '1.45rem' }}
+                            style={{
+                                textDecoration: 'none',
+                                fontWeight: 800,
+                                letterSpacing: '-0.02em',
+                                background: 'linear-gradient(135deg, #ec4899 0%, #a855f7 50%, #6366f1 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                backgroundClip: 'text',
+                                filter: 'drop-shadow(0 2px 10px rgba(236, 72, 153, 0.2))',
+                                display: 'block',
+                                lineHeight: 1.15,
+                                fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+                            }}
+                        >
+                            Dil Ki Baatein
+                        </Title>
+                        <Text size="11px" c="dimmed" mt={2} style={{ letterSpacing: '0.1px', fontWeight: 500 }}>
+                            A place for unspoken feelings
+                        </Text>
+                    </Box>
                 </motion.div>
 
                 <Group gap="sm" align="center" wrap="nowrap">

@@ -1,6 +1,6 @@
 import { Container, Title, Button, Group, Card, Text, Avatar, Stack, Center, Modal, Tabs, FileInput, TextInput, Textarea, Paper, Box, BackgroundImage, Flex, ActionIcon, Divider, Indicator, ScrollArea } from '@mantine/core';
 import AppLoader from '../components/AppLoader';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import api from '../api/axios';
 import useAuthStore from '../store/authStore';
@@ -15,7 +15,7 @@ import { usePosts } from '../hooks/usePosts';
 import { useProfile } from '../hooks/useProfile';
 
 const Profile = () => {
-    const { user: currentUser, login, logout } = useAuthStore(); // login function to update context user if needed
+    const { user: currentUser } = useAuthStore(); // login function to update context user if needed
     const { username } = useParams();
     const navigate = useNavigate();
     const [followLoading, setFollowLoading] = useState(false);
@@ -58,6 +58,20 @@ const Profile = () => {
     // PDF Loading State
     const [pdfLoading, setPdfLoading] = useState(false);
 
+    const fetchProfileData = useCallback(() => {
+        // Now handled by useUser hook, but keeping this for form pre-fill logic if needed
+        if (profileUser && isOwnProfile) {
+            setEditForm({
+                username: profileUser.username,
+                displayName: profileUser.displayName || '',
+                bio: profileUser.bio || '',
+                image: null,
+                imageUrl: '',
+                coverImage: null,
+                coverImageUrl: profileUser.coverPic || ''
+            });
+        }
+    }, [profileUser, isOwnProfile]);
 
     useEffect(() => {
         if (!username && currentUser) {
@@ -65,7 +79,7 @@ const Profile = () => {
         } else if (profileId) {
             fetchProfileData();
         }
-    }, [profileId, currentUser, username, navigate]);
+    }, [profileId, currentUser, username, navigate, fetchProfileData]);
 
     // Removed manual useEffects for posts fetching
 
@@ -97,11 +111,6 @@ const Profile = () => {
         return () => window.removeEventListener('paste', handlePaste);
     }, []);
 
-    const clearImage = () => {
-        setEditForm(prev => ({ ...prev, image: null, imageUrl: '' }));
-        setPreviewUrl(null);
-    };
-
     useEffect(() => {
         if (currentUser && profileUser && !isOwnProfile) {
             // Check if we have followers data (might be empty for private profiles)
@@ -118,24 +127,9 @@ const Profile = () => {
         }
     }, [currentUser, profileUser, isOwnProfile]);
 
-    const fetchProfileData = () => {
-        // Now handled by useUser hook, but keeping this for form pre-fill logic if needed
-        if (profileUser && isOwnProfile) {
-            setEditForm({
-                username: profileUser.username,
-                displayName: profileUser.displayName || '',
-                bio: profileUser.bio || '',
-                image: null,
-                imageUrl: '',
-                coverImage: null,
-                coverImageUrl: profileUser.coverPic || ''
-            });
-        }
-    };
-
     useEffect(() => {
         if (profileUser) fetchProfileData();
-    }, [profileUser]);
+    }, [profileUser, fetchProfileData]);
 
     // Removed fetchLikedPosts
 
@@ -214,10 +208,9 @@ const Profile = () => {
             // Use the actual user ID from profileUser, not the username
             const recipientId = profileUser._id;
 
-            const response = await api.post('/chat/conversation', { recipientId });
+            await api.post('/chat/conversation', { recipientId });
 
-            navigate('/chat');
-        } catch (error) {
+            navigate('/chat');        } catch (error) {
             console.error('Error creating conversation:', error);
             const errorMessage = error.response?.data?.message || 'Could not initiate chat';
             notifications.show({ title: 'Error', message: errorMessage, color: 'red' });
@@ -228,8 +221,6 @@ const Profile = () => {
         setEditLoading(true);
 
         try {
-            let data;
-
             if (editForm.image || editForm.coverImage) {
                 // File upload - use FormData with multer route
                 const formData = new FormData();
@@ -239,23 +230,20 @@ const Profile = () => {
                 if (editForm.image) formData.append('image', editForm.image);
                 if (editForm.coverImage) formData.append('coverImage', editForm.coverImage);
 
-                const response = await api.put('/auth/profile', formData, {
+                await api.put('/auth/profile', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
-                data = response.data;
             } else {
                 // URL upload or no image - use JSON with URL route
-                const response = await api.put('/auth/profile-url', {
+                await api.put('/auth/profile-url', {
                     username: editForm.username,
                     displayName: editForm.displayName,
                     bio: editForm.bio,
                     profilePic: editForm.imageUrl || '',
                     coverPic: editForm.coverImageUrl || ''
                 });
-                data = response.data;
             }
 
-            // data is updated user
             // Invalidate user query to refresh profile data
             notifications.show({ title: 'Success', message: 'Profile updated', color: 'green' });
             refetchProfile();
@@ -878,7 +866,7 @@ const Profile = () => {
 
                                 {/* Scrollable feed starting from tapped post */}
                                 <Box style={{ flex: 1, overflowY: 'auto' }} pt="sm">
-                                    {selectedPostIndex !== null && blogs.slice(selectedPostIndex).map((blog, i) => (
+                                    {selectedPostIndex !== null && blogs.slice(selectedPostIndex).map((blog) => (
                                         <Box key={blog._id} pb="xs">
                                             <BlogCard blog={blog} />
                                         </Box>

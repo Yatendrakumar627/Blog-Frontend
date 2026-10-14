@@ -5,7 +5,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { IconInfoCircle, IconMail, IconLock } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../api/axios';
 
 const Login = () => {
     const { login, loading: authLoading } = useAuthStore();
@@ -21,9 +20,7 @@ const Login = () => {
 
     // Reset alert when email changes
     useEffect(() => {
-        if (!emailExists) {
-            setEmailExists(true);
-        }
+        setEmailExists(true);
     }, [form.values.email]);
 
     const handleSubmit = async (values) => {

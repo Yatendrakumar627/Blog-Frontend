@@ -10,9 +10,9 @@ import { useEffect } from 'react';
 const BlogCardSkeleton = () => (
     <Paper
         radius="lg"
-        p="md"
+        p={{ base: 10, sm: 'md', md: 'lg' }}
         withBorder
-        mb="md"
+        mb={{ base: 'sm', sm: 'md' }}
         style={{
             backgroundColor: 'light-dark(rgba(255,255,255,0.6), rgba(26,27,30,0.6))',
         }}

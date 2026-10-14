@@ -1,40 +1,69 @@
-import { Title, Button, Group, FileInput, Checkbox, TextInput, Box, Text, Image,
+import {
+    Title, Button, Group, FileInput, Checkbox, TextInput, Box, Text, Image,
     Paper, ActionIcon, Stack, SegmentedControl, Chip, Tooltip, SimpleGrid, Center,
-    Transition, Collapse, useMantineColorScheme, Menu, Divider, rem, Skeleton, Select, ColorPicker, Popover, Alert
+    Transition, Collapse, useMantineColorScheme, Menu, Divider, Skeleton, Select,
+    Popover, Badge, UnstyledButton, ScrollArea
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { X, Upload, Link as LinkIcon, Sparkles } from 'lucide-react';
-import { RichTextEditor, Link as MantineLink } from '@mantine/tiptap';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import {
+    X, Upload, Link as LinkIcon, Sparkles, Mic, MicOff,
+    Maximize, Minimize, Eye, Edit3, Share2, Compass, Check
+} from 'lucide-react';
+import { RichTextEditor } from '@mantine/tiptap';
 import Underline from '@tiptap/extension-underline';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 import FontFamily from '@tiptap/extension-font-family';
+import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import { IconMoodSmile, IconMoodSad, IconMoodEmpty, IconHeart, IconRocket, IconMoodAngry, IconHash, IconPhoto, IconLink, IconFeather, IconQuote, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease, IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck, IconPalette, IconHeartHandshake } from '@tabler/icons-react';
+import {
+    IconMoodSmile, IconMoodSad, IconMoodEmpty, IconHeart, IconRocket, IconMoodAngry,
+    IconHash, IconPhoto, IconFeather, IconQuote, IconAlignLeft, IconAlignCenter,
+    IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease,
+    IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck,
+    IconPalette, IconHeartHandshake, IconDownload, IconVolume, IconTypography,
+    IconChevronDown
+} from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notifications } from '@mantine/notifications';
+import DOMPurify from 'dompurify';
+
+import QuoteCardModal from './QuoteCardModal';
+import SlashCommandMenu from './SlashCommandMenu';
+import FloatingBubbleMenu from './FloatingBubbleMenu';
+import {
+    FONT_FAMILIES, QUICK_FONT_PRESETS, LINE_HEIGHT_OPTIONS
+} from '../constants/typography';
 
 const MOODS = [
-    { value: 'Happy', icon: IconMoodSmile, color: 'yellow', label: 'Happy' },
-    { value: 'Excited', icon: IconRocket, color: 'orange', label: 'Excited' },
-    { value: 'Thoughtful', icon: IconMoodEmpty, color: 'violet', label: 'Thoughtful' },
-    { value: 'Healing', icon: IconHeart, color: 'pink', label: 'Healing' },
-    { value: 'Sad', icon: IconMoodSad, color: 'blue', label: 'Sad' },
-    { value: 'Angry', icon: IconMoodAngry, color: 'red', label: 'Angry' },
+    { value: 'Happy', icon: IconMoodSmile, color: 'yellow', hex: '#fab005', label: 'Happy' },
+    { value: 'Excited', icon: IconRocket, color: 'orange', hex: '#fd7e14', label: 'Excited' },
+    { value: 'Thoughtful', icon: IconMoodEmpty, color: 'violet', hex: '#7950f2', label: 'Thoughtful' },
+    { value: 'Healing', icon: IconHeart, color: 'pink', hex: '#20c997', label: 'Healing' },
+    { value: 'Sad', icon: IconMoodSad, color: 'blue', hex: '#339af0', label: 'Sad' },
+    { value: 'Angry', icon: IconMoodAngry, color: 'red', hex: '#fa5252', label: 'Angry' },
+];
+
+const QUICK_TAGS = [
+    '#DilKiBaat', '#Poetry', '#Shayari', '#Healing', '#Thoughts', '#Life', '#Love', '#Motivation'
+];
+
+const PRESET_BACKGROUNDS = [
+    { label: 'Vintage Parchment', value: '/paper-bg.png' },
+    { label: 'Starry Quote Canvas', value: '/quote-bg-1.png' },
+    { label: 'Soft Sunset Glow', value: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Midnight Aurora', value: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80' }
 ];
 
 const FontSize = Extension.create({
     name: 'fontSize',
     addOptions() {
-        return {
-            types: ['textStyle'],
-        };
+        return { types: ['textStyle'] };
     },
     addGlobalAttributes() {
         return [
@@ -43,19 +72,25 @@ const FontSize = Extension.create({
                 attributes: {
                     fontSize: {
                         default: null,
-                        parseHTML: element => element.style.fontSize.replace(/['"]+/g, ''),
+                        parseHTML: element => element.style.fontSize?.replace(/['"]+/g, ''),
                         renderHTML: attributes => {
-                            if (!attributes.fontSize) {
-                                return {};
-                            }
-                            return {
-                                style: `font-size: ${attributes.fontSize}`,
-                            };
+                            if (!attributes.fontSize) return {};
+                            return { style: `font-size: ${attributes.fontSize}` };
                         },
                     },
                 },
             },
         ];
+    },
+    addCommands() {
+        return {
+            setFontSize: (fontSize) => ({ chain }) => {
+                return chain().setMark('textStyle', { fontSize }).run();
+            },
+            unsetFontSize: () => ({ chain }) => {
+                return chain().setMark('textStyle', { fontSize: null }).run();
+            },
+        };
     },
 });
 
@@ -77,9 +112,7 @@ const LineHeight = Extension.create({
                         parseHTML: element => element.style.lineHeight || this.options.defaultLineHeight,
                         renderHTML: attributes => {
                             if (!attributes.lineHeight) return {};
-                            return {
-                                style: `line-height: ${attributes.lineHeight}`,
-                            };
+                            return { style: `line-height: ${attributes.lineHeight}` };
                         },
                     },
                 },
@@ -105,9 +138,7 @@ const LineHeight = Extension.create({
 const ParagraphSpacing = Extension.create({
     name: 'paragraphSpacing',
     addOptions() {
-        return {
-            types: ['paragraph', 'heading'],
-        };
+        return { types: ['paragraph', 'heading'] };
     },
     addGlobalAttributes() {
         return [
@@ -119,9 +150,7 @@ const ParagraphSpacing = Extension.create({
                         parseHTML: element => element.style.marginTop || null,
                         renderHTML: attributes => {
                             if (!attributes.marginTop) return {};
-                            return {
-                                style: `margin-top: ${attributes.marginTop}`,
-                            };
+                            return { style: `margin-top: ${attributes.marginTop}` };
                         },
                     },
                     marginBottom: {
@@ -129,9 +158,7 @@ const ParagraphSpacing = Extension.create({
                         parseHTML: element => element.style.marginBottom || null,
                         renderHTML: attributes => {
                             if (!attributes.marginBottom) return {};
-                            return {
-                                style: `margin-bottom: ${attributes.marginBottom}`,
-                            };
+                            return { style: `margin-bottom: ${attributes.marginBottom}` };
                         },
                     },
                 },
@@ -154,12 +181,37 @@ const ParagraphSpacing = Extension.create({
     },
 });
 
-const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loading = false, isLoading = false }) => {
+const PostForm = ({
+    initialData,
+    onSubmit,
+    onCancel,
+    submitLabel = "Post",
+    loading = false,
+    isLoading = false
+}) => {
     const [previewUrl, setPreviewUrl] = useState(null);
+    const [bgPreviewUrl, setBgPreviewUrl] = useState(null);
     const [focusedField, setFocusedField] = useState(null);
     const [hasDraft, setHasDraft] = useState(false);
+    const [lastSaved, setLastSaved] = useState(null);
     const [showSupport, setShowSupport] = useState(false);
+    const [studioTab, setStudioTab] = useState('canvas'); // 'canvas' | 'preview'
+    const [zenMode, setZenMode] = useState(false);
+    const [showToolbar, setShowToolbar] = useState(true);
+    const [quoteCardModalOpen, setQuoteCardModalOpen] = useState(false);
+    const [canvasTextureEnabled, setCanvasTextureEnabled] = useState(true);
+    
+    // Slash commands state
+    const [slashOpen, setSlashOpen] = useState(false);
+    const [slashPosition, setSlashPosition] = useState({ top: 0, left: 0 });
+    const [slashQuery, setSlashQuery] = useState('');
+
+    // Audio Dictation state
+    const [isListening, setIsListening] = useState(false);
+    const recognitionRef = useRef(null);
+
     const DRAFT_KEY = 'blog_draft';
+    const editorContainerRef = useRef(null);
 
     const form = useForm({
         initialValues: {
@@ -169,38 +221,45 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
             isAnonymous: initialData?.isAnonymous || false,
             displayMode: initialData?.displayMode || 'Standard',
             image: null,
-            imageUrl: initialData?.mediaUrl || '',
+            imageUrl: initialData?.mediaUrl || initialData?.imageUrl || '',
             backgroundImage: null,
-            backgroundImageUrl: initialData?.backgroundImage || ''
+            backgroundImageUrl: initialData?.backgroundImage || initialData?.backgroundImageUrl || ''
         },
     });
 
     const { colorScheme } = useMantineColorScheme();
     const isDark = colorScheme === 'dark';
 
+    // TipTap Editor instance
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
-                // Remove the default Link extension from StarterKit
                 link: false,
-                // Configure paragraph spacing
+                underline: false,
                 paragraph: {
                     HTMLAttributes: {
                         class: 'editor-paragraph',
                     },
                 },
-                // Configure heading spacing
                 heading: {
                     HTMLAttributes: {
                         class: 'editor-heading',
                     },
                 },
             }),
+            Placeholder.configure({
+                placeholder: ({ node }) => {
+                    if (node.type.name === 'heading') {
+                        return 'Enter title or verse heading...';
+                    }
+                    return 'Likhiye apne dil ki baat... (Type poetry, shayari, or thoughts — press / for styles or highlight text)';
+                },
+                emptyEditorClass: 'is-editor-empty',
+            }),
+            Underline,
             Link.configure({
                 openOnClick: false,
-                HTMLAttributes: {
-                    target: '_blank',
-                },
+                HTMLAttributes: { target: '_blank' },
             }),
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
@@ -215,42 +274,69 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         content: initialData?.content || '',
         editorProps: {
             attributes: {
-                style: `min-height: 150px; padding: 0.75rem; outline: none; color: ${isDark ? 'white' : 'black'};`,
+                style: `min-height: ${zenMode ? '420px' : '260px'}; outline: none; font-size: 1.05rem; line-height: 1.7; color: ${isDark ? '#f8f9fa' : '#1a1b1e'}; caret-color: #339af0;`,
             },
-            // Add custom styles for better paragraph spacing
             transformPastedHTML: (html) => {
-                // Convert double line breaks to proper paragraphs
                 return html.replace(/\n\s*\n/g, '</p><p>').replace(/^(.*)$/, '<p>$1</p>');
             },
         },
         onUpdate({ editor }) {
-            form.setFieldValue('content', editor.getHTML());
+            const html = editor.getHTML();
+            form.setFieldValue('content', html);
+
+            // Handle slash command detection
+            const { state, view } = editor;
+            const { from } = state.selection;
+            const textBefore = state.doc.textBetween(Math.max(0, from - 20), from, '\n');
+            const slashMatch = textBefore.match(/\/([a-zA-Z0-9]*)$/);
+
+            if (slashMatch) {
+                const query = slashMatch[1];
+                setSlashQuery(query);
+                const coords = view.coordsAtPos(from);
+                const containerRect = editorContainerRef.current?.getBoundingClientRect();
+
+                if (containerRect) {
+                    setSlashPosition({
+                        top: coords.bottom - containerRect.top + 8,
+                        left: Math.max(10, coords.left - containerRect.left)
+                    });
+                }
+                setSlashOpen(true);
+            } else {
+                setSlashOpen(false);
+            }
         },
     });
 
-    // Memoize spacing options to prevent re-renders
+    // Spacing options memoized
     const spacingOptions = useMemo(() => [
         { label: 'Compact', value: '0.8' },
         { label: 'Tight', value: '0.9' },
         { label: '1.0', value: '1.0' },
-        { label: '1.1', value: '1.1' },
-        { label: '1.2', value: '1.2' },
-        { label: '1.3', value: '1.3' },
-        { label: '1.4', value: '1.4' },
-        { label: '1.5', value: '1.5' },
-        { label: '1.6', value: '1.6' },
-        { label: '1.8', value: '1.8' },
-        { label: '2.0', value: '2.0' },
-        { label: '2.5', value: '2.5' },
-        { label: '3.0', value: '3.0' },
+        { label: '1.2 (Standard)', value: '1.2' },
+        { label: '1.5 (Relaxed)', value: '1.5' },
+        { label: '2.0 (Double)', value: '2.0' },
     ], []);
 
-    // Memoize current line height to prevent excessive checks
-    const currentLineHeight = useMemo(() => {
-        return editor?.getAttributes('paragraph').lineHeight || '1.2';
-    }, [editor?.state.selection, editor?.state.doc.content, editor?.state.doc.attrs]);
+    const currentLineHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
 
-    // Memoized spacing handlers
+    // Current Mood Details
+    const currentMoodObj = useMemo(() => {
+        return MOODS.find(m => m.value === form.values.mood) || MOODS[2];
+    }, [form.values.mood]);
+
+    // Live Reading Stats
+    const stats = useMemo(() => {
+        const text = editor ? editor.getText() : (form.values.content?.replace(/<[^>]*>/g, '') || '');
+        const words = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+        const characters = text.length;
+        const readTime = Math.max(1, Math.ceil(words / 200));
+        const stanzas = text.split(/\n\s*\n/).filter(Boolean).length;
+        return { words, characters, readTime, stanzas };
+    }, [form.values.content, editor]);
+
+    // Spacing handlers
     const handleLineSpacingChange = useCallback((value) => {
         editor?.chain().focus(undefined, { scrollIntoView: false }).setLineHeight(value).run();
     }, [editor]);
@@ -276,7 +362,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         }
     }, [initialData?.content, editor]);
 
-    // Handle preview
+    // Media preview
     useEffect(() => {
         if (form.values.image) {
             const objectUrl = URL.createObjectURL(form.values.image);
@@ -289,7 +375,20 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         }
     }, [form.values.image, form.values.imageUrl]);
 
-    // Paste handler
+    // Background Image Preview (supports both uploaded File and URL/Preset)
+    useEffect(() => {
+        if (form.values.backgroundImage) {
+            const objectUrl = URL.createObjectURL(form.values.backgroundImage);
+            setBgPreviewUrl(objectUrl);
+            return () => URL.revokeObjectURL(objectUrl);
+        } else if (form.values.backgroundImageUrl) {
+            setBgPreviewUrl(form.values.backgroundImageUrl);
+        } else {
+            setBgPreviewUrl(null);
+        }
+    }, [form.values.backgroundImage, form.values.backgroundImageUrl]);
+
+    // Paste handler for direct image paste
     useEffect(() => {
         const handlePaste = (e) => {
             if (e.clipboardData.files.length) {
@@ -297,6 +396,11 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                 if (file.type.startsWith('image/')) {
                     form.setFieldValue('image', file);
                     form.setFieldValue('imageUrl', '');
+                    notifications.show({
+                        title: 'Image Attached',
+                        message: 'Pasted image ready for upload.',
+                        color: 'teal'
+                    });
                 }
             }
         };
@@ -305,7 +409,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         return () => document.removeEventListener('paste', handlePaste);
     }, [form]);
 
-    // Check for draft on mount
+    // Draft management
     useEffect(() => {
         if (!initialData) {
             const savedDraft = localStorage.getItem(DRAFT_KEY);
@@ -315,16 +419,16 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         }
     }, [initialData]);
 
-    // Save draft when content changes
     useEffect(() => {
-        if (!initialData && form.values.content) {
-            // Emotional Support Check
+        if (!initialData && form.values.content && form.values.content !== '<p></p>') {
+            // Emotional distress safeguard check
             const lowerContent = form.values.content.toLowerCase();
             const negativeWords = ['suicide', 'kill myself', 'depressed', 'end it all', 'hopeless', 'meaningless', 'hurt myself', 'give up'];
             const hasNegativeVibes = negativeWords.some(word => lowerContent.includes(word));
             if (hasNegativeVibes && !showSupport) setShowSupport(true);
             if (!hasNegativeVibes && showSupport) setShowSupport(false);
 
+            // Debounced local autosave
             const timer = setTimeout(() => {
                 const draft = {
                     content: form.values.content,
@@ -336,10 +440,11 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                     backgroundImageUrl: form.values.backgroundImageUrl
                 };
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [form.values, initialData]);
+    }, [form.values, initialData, showSupport]);
 
     const loadDraft = () => {
         try {
@@ -351,7 +456,12 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                     editor.commands.setContent(draft.content);
                 }
                 setHasDraft(false);
-                notifications.show({ title: 'Draft Loaded', message: 'Your previous work has been restored.', color: 'green' });
+                notifications.show({
+                    title: 'Draft Restored',
+                    message: 'Your creative progress has been recovered.',
+                    color: 'teal',
+                    icon: <Check size={16} />
+                });
             }
         } catch (e) {
             console.error('Failed to load draft:', e);
@@ -363,93 +473,87 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         setHasDraft(false);
     };
 
-    const handleFormSubmit = (values) => {
-        if (!initialData) clearDraft();
-        handleSubmitFn(values);
-    };
+    // Speech-to-Text Dictation System
+    const toggleSpeechRecognition = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            notifications.show({
+                title: 'Speech Not Supported',
+                message: 'Your browser does not support native speech dictation. Try Chrome or Edge.',
+                color: 'yellow'
+            });
+            return;
+        }
 
-    // Keyboard shortcuts for line spacing
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            // Handle soft line breaks (Shift+Enter)
-            if (e.key === 'Enter' && e.shiftKey) {
-                e.preventDefault();
-                editor?.chain().focus().command(({ tr }) => {
-                    const { selection } = tr;
-                    const { $from } = selection;
-                    tr.replaceSelectionWith(editor.schema.text('\n'));
-                    tr.setSelection(TextSelection.create(tr.doc, $from.pos + 1));
-                    return true;
-                }).run();
-                return;
-            }
-            
-            if (e.ctrlKey || e.metaKey) {
-                // Font shortcuts
-                if (e.shiftKey) {
-                    switch(e.key) {
-                        case 's':
-                            e.preventDefault();
-                            editor?.chain().focus().setFontFamily('Arial').run();
-                            break;
-                        case 'r':
-                            e.preventDefault();
-                            editor?.chain().focus().setFontFamily('Times New Roman').run();
-                            break;
-                        case 'd':
-                            e.preventDefault();
-                            editor?.chain().focus().setFontFamily('Dancing Script').run();
-                            break;
-                        case 'i':
-                            e.preventDefault();
-                            editor?.chain().focus().setFontFamily('Impact').run();
-                            break;
-                        case 'c':
-                            e.preventDefault();
-                            editor?.chain().focus().setFontFamily('Courier New').run();
-                            break;
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+            return;
+        }
+
+        try {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = navigator.language || 'en-US';
+
+            recognition.onstart = () => {
+                setIsListening(true);
+                notifications.show({
+                    title: 'Listening...',
+                    message: 'Speak from your heart. Speech is transcribed directly into the canvas.',
+                    color: 'pink',
+                    icon: <Mic size={16} />
+                });
+            };
+
+            recognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        const transcript = event.results[i][0].transcript;
+                        editor?.chain().focus().insertContent(` ${transcript.trim()} `).run();
                     }
                 }
-                // Ctrl/Cmd + Alt + 1: Set line height to 1.0
-                else if (e.altKey && e.key === '1') {
-                    e.preventDefault();
-                    editor?.chain().focus().setLineHeight('1.0').run();
-                }
-                // Ctrl/Cmd + Alt + 2: Set line height to 1.5
-                else if (e.altKey && e.key === '2') {
-                    e.preventDefault();
-                    editor?.chain().focus().setLineHeight('1.5').run();
-                }
-                // Ctrl/Cmd + Alt + 3: Set line height to 2.0
-                else if (e.altKey && e.key === '3') {
-                    e.preventDefault();
-                    editor?.chain().focus().setLineHeight('2.0').run();
-                }
-                // Ctrl/Cmd + Alt + 0: Reset line height
-                else if (e.altKey && e.key === '0') {
-                    e.preventDefault();
-                    editor?.chain().focus().unsetLineHeight().run();
-                }
-                // Ctrl/Cmd + Alt + Up: Decrease line spacing
-                else if (e.altKey && e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    const currentHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
-                    const newHeight = Math.max(0.8, parseFloat(currentHeight) - 0.1).toFixed(1);
-                    editor?.chain().focus().setLineHeight(newHeight).run();
-                }
-                // Ctrl/Cmd + Alt + Down: Increase line spacing
-                else if (e.altKey && e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    const currentHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
-                    const newHeight = Math.min(3.0, parseFloat(currentHeight) + 0.1).toFixed(1);
-                    editor?.chain().focus().setLineHeight(newHeight).run();
-                }
-            }
-        };
+            };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [editor]);
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                setIsListening(false);
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
+        } catch (err) {
+            console.error('Speech setup error:', err);
+            setIsListening(false);
+        }
+    };
+
+    // Quick tag adder
+    const handleAddTag = (tag) => {
+        const currentTags = form.values.tags ? form.values.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+        if (!currentTags.includes(tag)) {
+            const newTags = [...currentTags, tag].join(', ');
+            form.setFieldValue('tags', newTags);
+        }
+    };
+
+    // Format presets handler
+    const handleFormatChange = (val) => {
+        form.setFieldValue('displayMode', val);
+        if (val === 'Shayari' || val === 'Poetry') {
+            editor?.chain().focus().setTextAlign('center').run();
+            if (!form.values.backgroundImageUrl) {
+                form.setFieldValue('backgroundImageUrl', '/paper-bg.png');
+            }
+        } else {
+            editor?.chain().focus().setTextAlign('left').run();
+        }
+    };
 
     const clearImage = () => {
         form.setFieldValue('image', null);
@@ -457,21 +561,24 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         setPreviewUrl(null);
     };
 
-    const handleSubmitFn = (values) => {
+    const clearBackgroundImage = () => {
+        form.setFieldValue('backgroundImage', null);
+        form.setFieldValue('backgroundImageUrl', '');
+        setBgPreviewUrl(null);
+    };
+
+    const handleFormSubmit = (values) => {
         if (!values.content || values.content === '<p></p>') {
-            // Toast notification would be better here, but alert is fail-safe
+            notifications.show({
+                title: 'Empty Canvas',
+                message: 'Please write your thoughts before posting.',
+                color: 'orange'
+            });
             return;
         }
 
-        const formData = new FormData();
-        Object.keys(values).forEach(key => {
-            if (values[key] !== null) formData.append(key, values[key]);
-        });
-        if (!values.image && !values.imageUrl) formData.append('mediaUrl', '');
-        if (!values.backgroundImageUrl) formData.append('backgroundImage', '');
+        if (!initialData) clearDraft();
 
-        // Special mapping for file objects if needed, but the loop covers if it's in values
-        // Actually, we need to map cleanly:
         const data = new FormData();
         data.append('content', values.content);
         data.append('mood', values.mood);
@@ -483,7 +590,8 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
         else if (values.imageUrl) data.append('mediaUrl', values.imageUrl);
         else data.append('mediaUrl', '');
 
-        if (values.backgroundImageUrl) data.append('backgroundImage', values.backgroundImageUrl);
+        if (values.backgroundImage) data.append('backgroundImage', values.backgroundImage);
+        else if (values.backgroundImageUrl) data.append('backgroundImage', values.backgroundImageUrl);
         else data.append('backgroundImage', '');
 
         onSubmit(data);
@@ -491,427 +599,592 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
 
     if (isLoading) {
         return (
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-            >
-                <Paper
-                    radius="lg"
-                    p={{ base: 'xs', sm: 'lg' }}
-                    withBorder
-                    bg={isDark ? "rgba(30, 30, 30, 0.6)" : "rgba(255, 255, 255, 0.7)"}
-                    style={{
-                        backdropFilter: 'blur(10px)',
-                        border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'
-                    }}
-                >
-                    <Stack gap={{ base: 'sm', sm: 'md' }}>
-                        <Box>
-                            <Skeleton height={14} width={120} mb={6} radius="xs" />
-                            <Skeleton height={200} radius="md" />
-                        </Box>
-                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 'xs', md: 'md' }}>
-                            <Box>
-                                <Skeleton height={14} width={100} mb={6} radius="xs" />
-                                <Skeleton height={80} radius="md" />
-                            </Box>
-                            <Box>
-                                <Skeleton height={14} width={80} mb={6} radius="xs" />
-                                <Skeleton height={40} radius="md" />
-                            </Box>
-                        </SimpleGrid>
-                        <Skeleton height={40} radius="md" />
-                        <Group grow gap="sm">
-                            <Skeleton height={36} radius="md" />
-                            <Skeleton height={36} radius="md" />
-                        </Group>
-                        <Group justify="space-between" mt="xs">
-                            <Skeleton height={20} width={150} radius="xl" />
-                            <Skeleton height={36} width={100} radius="xl" />
-                        </Group>
-                    </Stack>
-                </Paper>
-            </motion.div>
+            <Paper radius="lg" p="lg" withBorder bg={isDark ? "rgba(30, 30, 30, 0.6)" : "rgba(255, 255, 255, 0.7)"}>
+                <Stack gap="md">
+                    <Skeleton height={20} width={180} radius="xs" />
+                    <Skeleton height={260} radius="md" />
+                    <SimpleGrid cols={2}>
+                        <Skeleton height={60} radius="md" />
+                        <Skeleton height={60} radius="md" />
+                    </SimpleGrid>
+                </Stack>
+            </Paper>
         );
     }
 
     return (
         <form onSubmit={form.onSubmit(handleFormSubmit)}>
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+            {/* Ambient Aura Canvas Wrapper */}
+            <Box
+                style={{
+                    position: zenMode ? 'fixed' : 'relative',
+                    inset: zenMode ? 0 : 'auto',
+                    zIndex: zenMode ? 9999 : 'auto',
+                    backgroundColor: zenMode ? (isDark ? '#090a0f' : '#f8f9fa') : 'transparent',
+                    overflowY: zenMode ? 'auto' : 'visible',
+                    padding: zenMode ? '2rem 1rem' : 0,
+                    transition: 'all 0.3s ease'
+                }}
             >
-                <Paper p="lg" radius="xl" withBorder style={{
-                    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                    backgroundColor: isDark ? 'rgba(30, 30, 35, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-                    backdropFilter: 'blur(10px)'
-                }}>
-                    <Stack gap="xl">
-                        {/* Header & Display Mode */}
-                        <Group justify="space-between" align="center" wrap="wrap">
-                            <Group>
-                                <Title order={4} fw={800} style={{
-                                    background: 'linear-gradient(45deg, #339af0, #e64980)',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent'
-                                }}>
-                                    {initialData ? 'Edit your thoughts' : 'What\'s on your mind?'}
+                {/* Dynamic Emotional Aura Mesh */}
+                <Box
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '100%',
+                        maxWidth: '900px',
+                        height: '400px',
+                        background: `radial-gradient(circle at 50% 15%, ${currentMoodObj.hex}22 0%, transparent 70%)`,
+                        filter: 'blur(40px)',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                        transition: 'background 0.8s ease'
+                    }}
+                />
+
+                <Paper
+                    p={{ base: 8, sm: 'xl' }}
+                    radius={{ base: '12px', sm: '24px' }}
+                    withBorder
+                    style={{
+                        position: 'relative',
+                        zIndex: 1,
+                        maxWidth: '860px',
+                        width: '100%',
+                        margin: '0 auto',
+                        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                        backgroundColor: isDark ? 'rgba(22, 23, 28, 0.75)' : 'rgba(255, 255, 255, 0.88)',
+                        backdropFilter: 'blur(20px)',
+                        boxShadow: zenMode
+                            ? '0 30px 60px rgba(0,0,0,0.5)'
+                            : (isDark ? '0 12px 36px rgba(0,0,0,0.4)' : '0 12px 36px rgba(0,0,0,0.06)')
+                    }}
+                >
+                    <Stack gap={{ base: 'sm', sm: 'lg' }}>
+                        {/* 2026 Creative Studio Top Navigation Bar */}
+                        <Group justify="space-between" align="center" wrap="wrap" gap={{ base: 6, sm: 'sm' }}>
+                            <Group gap="xs">
+                                <Title
+                                    order={3}
+                                    fw={900}
+                                    fz={{ base: '1.2rem', sm: '1.45rem' }}
+                                    style={{
+                                        background: 'linear-gradient(45deg, #339af0, #e64980)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        letterSpacing: '-0.5px'
+                                    }}
+                                >
+                                    {initialData ? 'Edit your thoughts' : 'Share your Dil Ki Baat'}
                                 </Title>
+
                                 {hasDraft && !initialData && (
-                                    <Button variant="light" color="orange" size="xs" radius="xl" onClick={loadDraft}>
+                                    <Button
+                                        variant="light"
+                                        color="orange"
+                                        size="compact-xs"
+                                        radius="xl"
+                                        onClick={loadDraft}
+                                    >
                                         Restore Draft
                                     </Button>
                                 )}
                             </Group>
+
+                            {/* View Switcher & Action Tools */}
+                            <Group gap={8}>
+                                <SegmentedControl
+                                    size="xs"
+                                    radius="xl"
+                                    value={studioTab}
+                                    onChange={setStudioTab}
+                                    data={[
+                                        {
+                                            label: (
+                                                <Group gap={5} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                                                    <Edit3 size={13} />
+                                                    <span>Canvas</span>
+                                                </Group>
+                                            ),
+                                            value: 'canvas'
+                                        },
+                                        {
+                                            label: (
+                                                <Group gap={5} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                                                    <Eye size={13} />
+                                                    <span>Preview</span>
+                                                </Group>
+                                            ),
+                                            value: 'preview'
+                                        },
+                                    ]}
+                                    classNames={{ label: 'seg-label-canvas-preview' }}
+                                    styles={{
+                                        root: {
+                                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                                            border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                            padding: '3px',
+                                            height: '32px'
+                                        },
+                                        indicator: {
+                                            background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
+                                            boxShadow: '0 2px 10px rgba(168, 85, 247, 0.35)',
+                                            borderRadius: '50px'
+                                        },
+                                        label: {
+                                            fontWeight: 600,
+                                            fontSize: '12px',
+                                            padding: '2px 10px',
+                                            color: isDark ? '#9ca3af' : '#71717a',
+                                            transition: 'color 0.15s ease',
+                                        }
+                                    }}
+                                />
+
+                                {/* Voice Dictation Button */}
+                                <Tooltip label={isListening ? "Listening... click to stop" : "Speak your Dil Ki Baat (Audio Dictation)"} position="bottom" withArrow>
+                                    <ActionIcon
+                                        variant={isListening ? "filled" : "light"}
+                                        color={isListening ? "red" : "pink"}
+                                        size="md"
+                                        radius="xl"
+                                        onClick={toggleSpeechRecognition}
+                                        style={{
+                                            boxShadow: isListening ? '0 0 14px rgba(250, 82, 82, 0.6)' : 'none'
+                                        }}
+                                    >
+                                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                                    </ActionIcon>
+                                </Tooltip>
+
+                                {/* Export Social Story Card */}
+                                <Tooltip label="Export Aesthetic Story/Quote Card (Instagram/WhatsApp)" position="bottom" withArrow>
+                                    <ActionIcon
+                                        variant="light"
+                                        color="violet"
+                                        size="md"
+                                        radius="xl"
+                                        onClick={() => setQuoteCardModalOpen(true)}
+                                    >
+                                        <Share2 size={16} />
+                                    </ActionIcon>
+                                </Tooltip>
+
+                                {/* Zen / Focus Mode Toggle */}
+                                <Tooltip label={zenMode ? "Exit Zen Mode" : "Distraction-Free Zen Mode"} position="bottom" withArrow>
+                                    <ActionIcon
+                                        variant={zenMode ? "filled" : "light"}
+                                        color="blue"
+                                        size="md"
+                                        radius="xl"
+                                        onClick={() => setZenMode(z => !z)}
+                                    >
+                                        {zenMode ? <Minimize size={16} /> : <Maximize size={16} />}
+                                    </ActionIcon>
+                                </Tooltip>
+                            </Group>
                         </Group>
 
-                        {/* Editor Section */}
-                        <Box>
-                            <Text fw={600} mb={6} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Sparkles size={14} /> Express Yourself
-                            </Text>
-                            <RichTextEditor
-                                editor={editor}
-                                variant="subtle"
-                                style={{
-                                    border: focusedField === 'editor' ? '1px solid var(--mantine-color-blue-5)' : (isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'),
-                                    borderRadius: '12px',
-                                    overflow: 'hidden',
-                                    transition: 'all 0.25s ease',
-                                    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)',
-                                    boxShadow: focusedField === 'editor' ? '0 0 0 2px rgba(34, 139, 230, 0.15)' : 'none'
-                                }}
-                                onFocus={() => setFocusedField('editor')}
-                                onBlur={() => setFocusedField(null)}
-                                styles={{
-                                    content: {
-                                        '& .ProseMirror': {
-                                            '& p': {
-                                                marginBottom: '0.8em',
-                                                lineHeight: '1.2',
-                                            },
-                                            '& p:last-child': {
-                                                marginBottom: '0',
-                                            },
-                                            '& h1, & h2, & h3, & h4, & h5, & h6': {
-                                                marginBottom: '0.6em',
-                                                marginTop: '1.2em',
-                                            },
-                                            '& h1:first-child, & h2:first-child, & h3:first-child, & h4:first-child, & h5:first-child, & h6:first-child': {
-                                                marginTop: '0',
-                                            },
-                                        }
-                                    }
-                                }}
-                            >
-                                <RichTextEditor.Toolbar style={{ backgroundColor: 'transparent', borderBottom: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)', padding: '6px' }}>
-                                    <Group gap="4px" wrap="wrap" align="center" justify="center">
-                                        {/* Row 1: Core Text Styling */}
-                                        <RichTextEditor.ControlsGroup>
-                                            <RichTextEditor.Bold />
-                                            <RichTextEditor.Italic />
-                                            <RichTextEditor.Underline />
-                                            <RichTextEditor.Link />
-                                        </RichTextEditor.ControlsGroup>
+                        {/* Live Reading Metrics Bar */}
+                        <Group justify="space-between" align="center" px={4}>
+                            <Group gap="xs">
+                                <Badge variant="dot" color={currentMoodObj.color} size="sm">
+                                    Vibe: {currentMoodObj.label}
+                                </Badge>
+                                <Text size="11px" c="dimmed">
+                                    {stats.words} words • {stats.readTime} min read {stats.stanzas > 1 ? `• ${stats.stanzas} stanzas` : ''}
+                                </Text>
+                            </Group>
 
-                                        <RichTextEditor.ControlsGroup>
-                                            <Tooltip 
-                                                    label="Font shortcuts: Ctrl+Shift+S (Sans), Ctrl+Shift+R (Serif), Ctrl+Shift+D (Decorative), Ctrl+Shift+I (Impact), Ctrl+Shift+C (Code)"
-                                                    position="bottom"
-                                                    withArrow
-                                                    multiline
-                                                    w={180}
-                                                >
-                                                    <Select
-                                                        placeholder="Font"
-                                                        data={[
-                                                    // Serif Fonts
-                                                    { group: 'Serif', items: [
-                                                        { value: 'Georgia', label: 'Georgia' },
-                                                        { value: 'Times New Roman', label: 'Times' },
-                                                        { value: 'Playfair Display', label: 'Playfair' },
-                                                        { value: 'Lora', label: 'Lora' },
-                                                        { value: 'Merriweather', label: 'Merriweather' },
-                                                        { value: 'Baskerville', label: 'Baskerville' },
-                                                    ]},
-                                                    // Sans-serif Fonts
-                                                    { group: 'Sans-serif', items: [
-                                                        { value: 'Arial', label: 'Arial' },
-                                                        { value: 'Helvetica', label: 'Helvetica' },
-                                                        { value: 'Verdana', label: 'Verdana' },
-                                                        { value: 'Tahoma', label: 'Tahoma' },
-                                                        { value: 'Trebuchet MS', label: 'Trebuchet' },
-                                                        { value: 'Open Sans', label: 'Open Sans' },
-                                                        { value: 'Roboto', label: 'Roboto' },
-                                                        { value: 'Lato', label: 'Lato' },
-                                                        { value: 'Montserrat', label: 'Montserrat' },
-                                                    ]},
-                                                    // Display/Decorative Fonts
-                                                    { group: 'Display', items: [
-                                                        { value: 'Impact', label: 'Impact' },
-                                                        { value: 'Great Vibes', label: 'G. Vibes' },
-                                                        { value: 'Dancing Script', label: 'Dancing' },
-                                                        { value: 'Satisfy', label: 'Satisfy' },
-                                                        { value: 'Pacifico', label: 'Pacifico' },
-                                                        { value: 'Lobster', label: 'Lobster' },
-                                                        { value: 'Caveat', label: 'Caveat' },
-                                                        { value: 'Kalam', label: 'Kalam' },
-                                                    ]},
-                                                    // Monospace Fonts
-                                                    { group: 'Monospace', items: [
-                                                        { value: 'Courier New', label: 'Courier' },
-                                                        { value: 'Monaco', label: 'Monaco' },
-                                                        { value: 'Consolas', label: 'Consolas' },
-                                                        { value: 'Menlo', label: 'Menlo' },
-                                                    ]},
-                                                ]}
-                                                renderOption={({ option, checked }) => (
-                                                    <Group flex="1" gap="xs">
-                                                        <Text size="xs" style={{ fontFamily: option.value }}>
-                                                            {option.label}
-                                                        </Text>
-                                                        {checked && <IconCheck style={{ marginInlineStart: 'auto' }} size={10} />}
-                                                    </Group>
-                                                )}
-                                                value={editor?.getAttributes('textStyle').fontFamily || ''}
-                                                onChange={(value) => {
-                                                    if (value) {
-                                                        editor?.chain().focus().setFontFamily(value).run();
-                                                    } else {
-                                                        editor?.chain().focus().unsetFontFamily().run();
-                                                    }
-                                                }}
-                                                size="xs"
-                                                w={120}
-                                                styles={{
-                                                    input: {
-                                                        border: 'none',
-                                                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                                                        color: isDark ? 'var(--mantine-color-gray-2)' : 'var(--mantine-color-dark-7)',
-                                                        fontSize: '10px',
-                                                        height: '24px',
-                                                        padding: '0 6px',
-                                                        borderRadius: '6px',
-                                                        minHeight: '24px',
-                                                        fontFamily: editor?.getAttributes('textStyle').fontFamily || 'inherit'
-                                                    },
-                                                    dropdown: {
-                                                        backgroundColor: isDark ? 'rgba(20, 20, 20, 0.98)' : 'white',
-                                                        backdropFilter: 'blur(10px)',
-                                                        border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-                                                        borderRadius: '8px',
-                                                        maxHeight: '300px',
-                                                        overflowY: 'auto'
-                                                    },
-                                                    option: {
-                                                        color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-dark-4)',
-                                                        fontSize: '11px',
-                                                        padding: '6px 8px',
-                                                        fontFamily: 'inherit',
-                                                        '&:hover': {
-                                                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                                                        }
-                                                    },
-                                                    label: {
-                                                        color: isDark ? 'var(--mantine-color-gray-5)' : 'var(--mantine-color-gray-6)',
-                                                        fontSize: '9px',
-                                                        fontWeight: 700,
-                                                        textTransform: 'uppercase',
-                                                        letterSpacing: '0.5px',
-                                                        padding: '4px 8px',
-                                                        backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
-                                                    }
-                                                }}
-                                            />
-                                                </Tooltip>
-                                            <RichTextEditor.Control
-                                                onClick={() => {
-                                                    const currentSize = editor.getAttributes('textStyle').fontSize;
-                                                    let size = 16;
-                                                    if (currentSize) {
-                                                        size = parseInt(currentSize.replace('px', ''));
-                                                    }
-                                                    editor.chain().focus().setMark('textStyle', { fontSize: `${size + 2}px` }).run();
-                                                }}
-                                                aria-label="Increase font size"
-                                                title="Increase font size"
-                                            >
-                                                <IconTextIncrease size={14} stroke={1.5} />
-                                            </RichTextEditor.Control>
-                                            <RichTextEditor.Control
-                                                onClick={() => {
-                                                    const currentSize = editor.getAttributes('textStyle').fontSize;
-                                                    let size = 16;
-                                                    if (currentSize) {
-                                                        size = parseInt(currentSize.replace('px', ''));
-                                                    }
-                                                    if (size > 10) {
-                                                        editor.chain().focus().setMark('textStyle', { fontSize: `${size - 2}px` }).run();
-                                                    }
-                                                }}
-                                                aria-label="Decrease font size"
-                                                title="Decrease font size"
-                                            >
-                                                <IconTextDecrease size={14} stroke={1.5} />
-                                            </RichTextEditor.Control>
-                                        </RichTextEditor.ControlsGroup>
+                            {lastSaved && (
+                                <Text size="11px" c="dimmed" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#20c997' }} />
+                                    Autosaved {lastSaved}
+                                </Text>
+                            )}
+                        </Group>
 
-                                        {/* Row 2: Secondary Tools & Para */}
-                                        <RichTextEditor.ControlsGroup>
-                                            <Popover position="bottom" withArrow shadow="md">
-                                                <Popover.Target>
-                                                    <RichTextEditor.Control
-                                                        aria-label="Text color"
-                                                        title="Text color"
-                                                    >
-                                                        <IconPalette size={14} stroke={1.5} color={editor?.getAttributes('textStyle').color || (isDark ? 'white' : 'black')} />
-                                                    </RichTextEditor.Control>
-                                                </Popover.Target>
-                                                <Popover.Dropdown p="xs">
-                                                    <Stack gap="xs">
-                                                        <Text size="xs" fw={700}>TEXT COLOR</Text>
-                                                        <SimpleGrid cols={5} spacing="xs">
-                                                            {[
-                                                                '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
-                                                                '#FFFF00', '#00FFFF', '#FF00FF', '#C0C0C0', '#808080',
-                                                                '#fab005', '#fd7e14', '#fa5252', '#e64980', '#be4bdb',
-                                                                '#7950f2', '#4c6ef5', '#228be6', '#15aabf', '#12b886',
-                                                            ].map((color) => (
-                                                                <ActionIcon
-                                                                    key={color}
-                                                                    size="sm"
-                                                                    onClick={() => editor?.chain().focus().setColor(color).run()}
-                                                                    style={{ backgroundColor: color, border: '1px solid rgba(0,0,0,0.1)' }}
-                                                                    variant="filled"
-                                                                >
-                                                                    {editor?.getAttributes('textStyle').color === color && <IconCheck size={10} color={color === '#FFFFFF' ? 'black' : 'white'} />}
-                                                                </ActionIcon>
-                                                            ))}
-                                                        </SimpleGrid>
-                                                        <Divider />
-                                                        <Button
-                                                            variant="subtle"
-                                                            size="xs"
-                                                            fullWidth
-                                                            onClick={() => editor?.chain().focus().unsetColor().run()}
-                                                        >
-                                                            Reset
-                                                        </Button>
-                                                    </Stack>
-                                                </Popover.Dropdown>
-                                            </Popover>
-                                            <RichTextEditor.Control
-                                                onClick={() => {
-                                                    const { from, to, empty } = editor.state.selection;
-                                                    if (empty) {
-                                                        editor.chain().focus().insertContent('“”').setTextSelection(from + 1).run();
-                                                    } else {
-                                                        editor.chain().focus().insertContentAt(to, '”').insertContentAt(from, '“').run();
-                                                    }
-                                                }}
-                                                aria-label="Insert quotes"
-                                                title="Insert quotes"
-                                            >
-                                                <IconQuote size={14} stroke={1.5} />
-                                            </RichTextEditor.Control>
-                                            <RichTextEditor.BulletList />
-                                            <Menu shadow="md" width={250} withinPortal>
-                                                <Menu.Target>
-                                                    <Tooltip 
-                                                        label="Keyboard shortcuts: Ctrl+Alt+1/2/3 for spacing, Ctrl+Alt+↑/↓ to adjust, Ctrl+Alt+0 to reset"
-                                                        position="bottom"
-                                                        withArrow
-                                                        multiline
-                                                        w={200}
-                                                    >
-                                                        <RichTextEditor.Control aria-label="Spacing" title="Spacing">
-                                                            <IconSpacingVertical size={14} stroke={1.5} />
-                                                        </RichTextEditor.Control>
-                                                    </Tooltip>
-                                                </Menu.Target>
-                                                <Menu.Dropdown style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                                    <Menu.Label>Line Spacing</Menu.Label>
-                                                    {spacingOptions.map((item) => (
-                                                        <Menu.Item
-                                                            key={item.value}
-                                                            onClick={() => handleLineSpacingChange(item.value)}
-                                                            rightSection={currentLineHeight === item.value ? <IconCheck size={12} /> : null}
+                        {/* STUDIO TAB: CANVAS VIEW */}
+                        {studioTab === 'canvas' ? (
+                            <Box ref={editorContainerRef} style={{ position: 'relative' }}>
+                                {/* Floating Selection Bubble Menu */}
+                                <FloatingBubbleMenu editor={editor} />
+
+                                {/* Slash Command Palette */}
+                                <SlashCommandMenu
+                                    editor={editor}
+                                    isOpen={slashOpen}
+                                    onClose={() => setSlashOpen(false)}
+                                    position={slashPosition}
+                                    query={slashQuery}
+                                />
+
+                                {/* Minimalist Canvas Container with Atmospheric Texture */}
+                                <Box
+                                    style={{
+                                        borderRadius: '12px',
+                                        overflow: 'hidden',
+                                        border: focusedField === 'editor'
+                                            ? `1px solid ${currentMoodObj.hex}`
+                                            : (isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'),
+                                        boxShadow: focusedField === 'editor'
+                                            ? `0 0 0 3px ${currentMoodObj.hex}25`
+                                            : (isDark ? '0 8px 30px rgba(0,0,0,0.3)' : '0 8px 30px rgba(0,0,0,0.03)'),
+                                        transition: 'all 0.25s ease',
+                                        backgroundImage: (bgPreviewUrl && canvasTextureEnabled) ? `url(${bgPreviewUrl})` : 'none',
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        position: 'relative',
+                                        width: '100%'
+                                    }}
+                                    onFocus={() => setFocusedField('editor')}
+                                    onBlur={() => setFocusedField(null)}
+                                >
+                                    {/* Translucent background scrim for high readability when canvas background is active */}
+                                    {bgPreviewUrl && canvasTextureEnabled && (
+                                        <Box
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                backgroundColor: isDark ? 'rgba(12, 13, 18, 0.84)' : 'rgba(255, 255, 255, 0.90)',
+                                                backdropFilter: 'blur(6px)',
+                                                zIndex: 0,
+                                                pointerEvents: 'none'
+                                            }}
+                                        />
+                                    )}
+
+                                    {/* Studio Canvas Control Header & Quick Typography Suite */}
+                                    <Box style={{ position: 'relative', zIndex: 1, borderBottom: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.07)', backgroundColor: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)' }}>
+                                        {/* Top Mini Bar: Slash Hint, Texture Status, Pro Tools Toggle */}
+                                        <Group justify="space-between" px={{ base: 8, sm: 'md' }} py={{ base: 4, sm: 6 }}>
+                                            <Text size="11px" c="dimmed" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Sparkles size={12} color={currentMoodObj.hex} />
+                                                Type <code style={{ padding: '1px 5px', borderRadius: '4px', background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>/</code> for styles • Highlight to format
+                                            </Text>
+
+                                            <Group gap="xs">
+                                                {bgPreviewUrl && (
+                                                    <Tooltip label={canvasTextureEnabled ? "Hide background texture on canvas while typing" : "Show background texture on canvas while typing"} withArrow>
+                                                        <UnstyledButton
+                                                            onClick={() => setCanvasTextureEnabled(c => !c)}
                                                             style={{
-                                                                fontSize: item.value === '0.8' || item.value === '0.9' ? '11px' : '12px',
-                                                                color: item.value === '0.8' || item.value === '0.9' ? 'var(--mantine-color-blue-6)' : undefined
+                                                                fontSize: '11px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                color: canvasTextureEnabled ? 'var(--mantine-color-pink-5)' : 'var(--mantine-color-dimmed)',
+                                                                cursor: 'pointer'
                                                             }}
                                                         >
-                                                            {item.label}
-                                                        </Menu.Item>
-                                                    ))}
-                                                    <Divider my="5px" />
-                                                    <Menu.Label>Paragraph Spacing</Menu.Label>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToDown size={12} />}
-                                                        onClick={() => handleMarginTopChange('8px')}
-                                                    >
-                                                        Small Space Before
-                                                    </Menu.Item>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToDown size={12} />}
-                                                        onClick={() => handleMarginTopChange('16px')}
-                                                    >
-                                                        Medium Space Before
-                                                    </Menu.Item>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToDown size={12} />}
-                                                        onClick={() => handleMarginTopChange('24px')}
-                                                    >
-                                                        Large Space Before
-                                                    </Menu.Item>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToUp size={12} />}
-                                                        onClick={() => handleMarginBottomChange('8px')}
-                                                    >
-                                                        Small Space After
-                                                    </Menu.Item>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToUp size={12} />}
-                                                        onClick={() => handleMarginBottomChange('16px')}
-                                                    >
-                                                        Medium Space After
-                                                    </Menu.Item>
-                                                    <Menu.Item
-                                                        leftSection={<IconArrowBarToUp size={12} />}
-                                                        onClick={() => handleMarginBottomChange('24px')}
-                                                    >
-                                                        Large Space After
-                                                    </Menu.Item>
-                                                    <Divider my="5px" />
-                                                    <Menu.Item
-                                                        onClick={handleResetSpacing}
-                                                        style={{ color: 'var(--mantine-color-red-6)' }}
-                                                    >
-                                                        Reset All Spacing
-                                                    </Menu.Item>
-                                                </Menu.Dropdown>
-                                            </Menu>
-                                        </RichTextEditor.ControlsGroup>
-                                        <RichTextEditor.ControlsGroup>
-                                            <RichTextEditor.AlignLeft />
-                                            <RichTextEditor.AlignCenter />
-                                            <RichTextEditor.AlignRight />
-                                            <RichTextEditor.AlignJustify />
-                                        </RichTextEditor.ControlsGroup>
-                                    </Group>
-                                </RichTextEditor.Toolbar>
-                                <RichTextEditor.Content />
-                            </RichTextEditor>
-                        </Box>
+                                                            <IconPhoto size={12} />
+                                                            {canvasTextureEnabled ? 'Canvas Texture: On' : 'Canvas Texture: Off'}
+                                                        </UnstyledButton>
+                                                    </Tooltip>
+                                                )}
 
-                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 'xs', md: 'md' }}>
+                                                <Button
+                                                    size="compact-xs"
+                                                    variant="subtle"
+                                                    color="gray"
+                                                    radius="md"
+                                                    onClick={() => setShowToolbar(s => !s)}
+                                                    style={{ fontSize: '11px', fontWeight: 500 }}
+                                                >
+                                                    {showToolbar ? 'Hide Tools' : 'Show Tools'}
+                                                </Button>
+                                            </Group>
+                                        </Group>
+                                    </Box>
+
+                                    <RichTextEditor editor={editor} variant="subtle" style={{ position: 'relative', zIndex: 1 }}>
+                                        {/* Unified Collapsible Studio Toolbar */}
+                                        <Collapse in={showToolbar}>
+                                            <RichTextEditor.Toolbar
+                                                style={{
+                                                    backgroundColor: isDark ? 'rgba(15, 17, 23, 0.85)' : 'rgba(248, 249, 250, 0.95)',
+                                                    backdropFilter: 'blur(12px)',
+                                                    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                                    padding: '6px 12px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: '8px',
+                                                    flexWrap: 'wrap'
+                                                }}
+                                            >
+                                                {/* Left Tools: Typeface Menu & Inline Formatting */}
+                                                <Group gap="xs" wrap="wrap" align="center">
+                                                    {/* Font Type Menu with Integrated Quick Presets & Curated List */}
+                                                    <Menu shadow="xl" width={290} withinPortal position="bottom-start">
+                                                        <Menu.Target>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant="light"
+                                                                color="violet"
+                                                                radius="md"
+                                                                leftSection={<IconTypography size={13} />}
+                                                                rightSection={<IconChevronDown size={11} />}
+                                                                style={{
+                                                                    fontFamily: editor?.getAttributes('textStyle').fontFamily ? `${editor.getAttributes('textStyle').fontFamily}, serif` : 'inherit',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 600,
+                                                                    height: '28px'
+                                                                }}
+                                                            >
+                                                                {editor?.getAttributes('textStyle').fontFamily || 'Font Type...'}
+                                                            </Button>
+                                                        </Menu.Target>
+                                                        <Menu.Dropdown
+                                                            p={8}
+                                                            style={{
+                                                                backgroundColor: isDark ? 'rgba(20, 20, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+                                                                backdropFilter: 'blur(16px)',
+                                                                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.1)'
+                                                            }}
+                                                        >
+                                                            <Menu.Label>Quick Presets</Menu.Label>
+                                                            <SimpleGrid cols={2} spacing={5} mb="xs" px={2}>
+                                                                {QUICK_FONT_PRESETS.map((preset) => {
+                                                                    const isActive = editor?.getAttributes('textStyle').fontFamily === preset.font;
+                                                                    return (
+                                                                        <Button
+                                                                            key={preset.id}
+                                                                            size="compact-xs"
+                                                                            variant={isActive ? 'filled' : 'light'}
+                                                                            color={isActive ? 'pink' : 'gray'}
+                                                                            radius="md"
+                                                                            justify="flex-start"
+                                                                            px={8}
+                                                                            style={{
+                                                                                fontSize: '11px',
+                                                                                fontFamily: `${preset.font}, serif`,
+                                                                                height: '28px'
+                                                                            }}
+                                                                            onClick={() => {
+                                                                                editor?.chain().focus().setFontFamily(preset.font).run();
+                                                                                notifications.show({
+                                                                                    title: `${preset.label} Font Applied`,
+                                                                                    message: `Set canvas typeface to ${preset.font}`,
+                                                                                    color: 'pink',
+                                                                                    autoClose: 1400
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            {preset.icon} {preset.label}
+                                                                        </Button>
+                                                                    );
+                                                                })}
+                                                            </SimpleGrid>
+
+                                                            <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
+                                                            <Menu.Label>Curated Expressive Typefaces</Menu.Label>
+                                                            <ScrollArea.Autosize mah={220}>
+                                                                {FONT_FAMILIES.map((group) => (
+                                                                    <Box key={group.category} mb={4}>
+                                                                        <Text size="10px" fw={700} c="dimmed" px="xs" py={2} tt="uppercase">
+                                                                            {group.category}
+                                                                        </Text>
+                                                                        {group.fonts.map((f) => (
+                                                                            <Menu.Item
+                                                                                key={f.value}
+                                                                                onClick={() => {
+                                                                                    if (f.value) {
+                                                                                        editor?.chain().focus().setFontFamily(f.value).run();
+                                                                                    } else {
+                                                                                        editor?.chain().focus().unsetFontFamily().run();
+                                                                                    }
+                                                                                }}
+                                                                                rightSection={editor?.getAttributes('textStyle').fontFamily === f.value ? <IconCheck size={12} color="#4dabf7" /> : null}
+                                                                                style={{ padding: '4px 8px', borderRadius: '6px' }}
+                                                                            >
+                                                                                <Text size="xs" style={{ fontFamily: `${f.value}, serif` }}>
+                                                                                    {f.label}
+                                                                                </Text>
+                                                                                <Text size="10px" c="dimmed">{f.desc}</Text>
+                                                                            </Menu.Item>
+                                                                        ))}
+                                                                    </Box>
+                                                                ))}
+                                                            </ScrollArea.Autosize>
+                                                            <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
+                                                            <Menu.Item
+                                                                color="red"
+                                                                onClick={() => editor?.chain().focus().unsetFontFamily().run()}
+                                                                style={{ fontSize: '11px' }}
+                                                            >
+                                                                Reset to Default Font
+                                                            </Menu.Item>
+                                                        </Menu.Dropdown>
+                                                    </Menu>
+
+                                                    <RichTextEditor.ControlsGroup>
+                                                        <RichTextEditor.Bold />
+                                                        <RichTextEditor.Italic />
+                                                        <RichTextEditor.Underline />
+                                                        <RichTextEditor.Link />
+                                                    </RichTextEditor.ControlsGroup>
+                                                </Group>
+
+                                                {/* Right Tools: Font Size Stepper, Alignment (Once!), Rhythmic Spacing (Once!) */}
+                                                <Group gap="xs" wrap="wrap" align="center">
+                                                    {/* Font Size Stepper */}
+                                                    <Group gap={2} p={2} style={{ borderRadius: '16px', background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', height: '28px' }} align="center">
+                                                        <Tooltip label="Decrease font size" withArrow>
+                                                            <ActionIcon
+                                                                size="xs"
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                onClick={() => {
+                                                                    const curr = editor?.getAttributes('textStyle').fontSize;
+                                                                    let size = curr ? parseInt(curr.replace('px', '')) : 18;
+                                                                    if (size > 12) editor?.chain().focus().setMark('textStyle', { fontSize: `${size - 2}px` }).run();
+                                                                }}
+                                                            >
+                                                                <IconTextDecrease size={12} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                        <Badge size="xs" variant="transparent" color="gray" px={4} style={{ fontSize: '10px' }}>
+                                                            {editor?.getAttributes('textStyle').fontSize || '18px'}
+                                                        </Badge>
+                                                        <Tooltip label="Increase font size" withArrow>
+                                                            <ActionIcon
+                                                                size="xs"
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                onClick={() => {
+                                                                    const curr = editor?.getAttributes('textStyle').fontSize;
+                                                                    let size = curr ? parseInt(curr.replace('px', '')) : 18;
+                                                                    if (size < 48) editor?.chain().focus().setMark('textStyle', { fontSize: `${size + 2}px` }).run();
+                                                                }}
+                                                            >
+                                                                <IconTextIncrease size={12} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </Group>
+
+                                                    {/* Alignment Group - Exactly Once */}
+                                                    <RichTextEditor.ControlsGroup>
+                                                        <RichTextEditor.AlignLeft />
+                                                        <RichTextEditor.AlignCenter />
+                                                        <RichTextEditor.AlignRight />
+                                                        <RichTextEditor.AlignJustify />
+                                                    </RichTextEditor.ControlsGroup>
+
+                                                    {/* Rhythmic Line-Height & Stanza Breathing Room - Exactly Once */}
+                                                    <RichTextEditor.ControlsGroup>
+                                                        <Menu shadow="md" width={220} withinPortal position="bottom-end">
+                                                            <Menu.Target>
+                                                                <RichTextEditor.Control title="Line & Stanza Spacing">
+                                                                    <IconSpacingVertical size={14} />
+                                                                </RichTextEditor.Control>
+                                                            </Menu.Target>
+                                                            <Menu.Dropdown>
+                                                                <Menu.Label>Rhythmic Line Spacing</Menu.Label>
+                                                                {LINE_HEIGHT_OPTIONS.map((item) => (
+                                                                    <Menu.Item
+                                                                        key={item.value}
+                                                                        onClick={() => handleLineSpacingChange(item.value)}
+                                                                        rightSection={currentLineHeight === item.value ? <IconCheck size={12} /> : null}
+                                                                    >
+                                                                        {item.label}
+                                                                    </Menu.Item>
+                                                                ))}
+                                                                <Divider my="5px" />
+                                                                <Menu.Label>Stanza Breathing Room</Menu.Label>
+                                                                <Menu.Item leftSection={<IconArrowBarToDown size={12} />} onClick={() => handleMarginTopChange('12px')}>
+                                                                    Space Before Stanza
+                                                                </Menu.Item>
+                                                                <Menu.Item leftSection={<IconArrowBarToUp size={12} />} onClick={() => handleMarginBottomChange('16px')}>
+                                                                    Space After Stanza
+                                                                </Menu.Item>
+                                                                <Menu.Item onClick={handleResetSpacing} color="red">
+                                                                    Reset Spacing
+                                                                </Menu.Item>
+                                                            </Menu.Dropdown>
+                                                        </Menu>
+                                                    </RichTextEditor.ControlsGroup>
+                                                </Group>
+                                            </RichTextEditor.Toolbar>
+                                        </Collapse>
+
+                                        {/* Main Prose Canvas */}
+                                        <RichTextEditor.Content />
+                                    </RichTextEditor>
+                                </Box>
+                            </Box>
+                        ) : (
+                            /* STUDIO TAB: LIVE FEED PREVIEW */
+                            <Box
+                                p="lg"
+                                style={{
+                                    borderRadius: '18px',
+                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                    backgroundColor: isDark ? 'rgba(16, 17, 22, 0.9)' : '#ffffff',
+                                    backgroundImage: bgPreviewUrl ? `url(${bgPreviewUrl})` : 'none',
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    minHeight: '280px',
+                                    position: 'relative'
+                                }}
+                            >
+                                <Group justify="space-between" mb="md">
+                                    <Group gap="xs">
+                                        <Box style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(45deg, #339af0, #e64980)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '13px' }}>
+                                            {form.values.isAnonymous ? '?' : 'You'}
+                                        </Box>
+                                        <Box>
+                                            <Text size="sm" fw={700}>
+                                                {form.values.isAnonymous ? 'Anonymous Soul' : 'Your Feed Persona'}
+                                            </Text>
+                                            <Text size="11px" c="dimmed">Just now • Dil Ki Baat</Text>
+                                        </Box>
+                                    </Group>
+                                    <Badge variant="filled" color={currentMoodObj.color} radius="xl">
+                                        {currentMoodObj.label}
+                                    </Badge>
+                                </Group>
+
+                                <Box
+                                    className="blog-content-display"
+                                    my="md"
+                                    p={bgPreviewUrl ? 'md' : 0}
+                                    style={{
+                                        backgroundColor: bgPreviewUrl ? (isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)') : 'transparent',
+                                        borderRadius: '12px',
+                                        backdropFilter: bgPreviewUrl ? 'blur(8px)' : 'none',
+                                        textAlign: form.values.displayMode === 'Shayari' || form.values.displayMode === 'Poetry' ? 'center' : 'left'
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(form.values.content || '<p>Nothing written yet...</p>') }}
+                                />
+
+                                {previewUrl && (
+                                    <Image src={previewUrl} radius="md" h={200} fit="cover" mb="md" />
+                                )}
+
+                                {form.values.tags && (
+                                    <Group gap={6} mt="sm">
+                                        {form.values.tags.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => (
+                                            <Badge key={tag} variant="light" size="xs" color="gray">
+                                                {tag.startsWith('#') ? tag : `#${tag}`}
+                                            </Badge>
+                                        ))}
+                                    </Group>
+                                )}
+                            </Box>
+                        )}
+
+                        {/* Vibe & Format Controls */}
+                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 'xs', sm: 'md' }}>
                             {/* Mood Selection */}
                             <Box>
-                                <Text fw={600} mb={6} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1}>Vibe Check</Text>
-                                <Paper p="xs" radius="md" bg={isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)"} withBorder style={{ borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                                    <Group gap={8} justify="center">
+                                <Text fw={700} mb={4} c="dimmed" size="xs" tt="uppercase" ls={1}>
+                                    Vibe Check
+                                </Text>
+                                <Paper p={{ base: 6, sm: 'xs' }} radius="md" bg={isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)"} withBorder style={{ borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+                                    <Group gap={{ base: 4, sm: 8 }} justify="center" wrap="nowrap">
                                         {MOODS.map((mood) => {
                                             const isSelected = form.values.mood === mood.value;
                                             return (
@@ -920,16 +1193,14 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                                         <ActionIcon
                                                             variant={isSelected ? 'gradient' : 'subtle'}
                                                             gradient={{ from: mood.color, to: 'pink', deg: 45 }}
-                                                            size="lg"
+                                                            size={{ base: 'md', sm: 'lg' }}
                                                             radius="xl"
                                                             onClick={() => form.setFieldValue('mood', mood.value)}
                                                             style={{
                                                                 opacity: isSelected ? 1 : 0.7,
-                                                                transition: 'all 0.3s cubic-bezier(.4,0,.2,1)',
                                                                 border: isSelected ? 'none' : (isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)'),
                                                                 color: isSelected ? 'white' : (isDark ? 'var(--mantine-color-gray-5)' : 'var(--mantine-color-dark-4)'),
-                                                                transform: isSelected ? 'scale(1.1)' : 'scale(1)',
-                                                                boxShadow: isSelected ? `0 0 15px var(--mantine-color-${mood.color}-9)` : 'none'
+                                                                boxShadow: isSelected ? `0 0 15px ${mood.hex}88` : 'none'
                                                             }}
                                                         >
                                                             <mood.icon size={20} />
@@ -939,18 +1210,20 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                             );
                                         })}
                                     </Group>
-                                    <Text ta="center" size="xs" c={MOODS.find(m => m.value === form.values.mood)?.color || (isDark ? 'dimmed' : 'dimmed')} mt={4} fw={700}>
+                                    <Text ta="center" size="xs" c={currentMoodObj.color} mt={4} fw={700}>
                                         {form.values.mood}
                                     </Text>
                                 </Paper>
                             </Box>
 
-                            {/* Display Mode */}
+                            {/* Format Presets */}
                             <Box>
-                                <Text fw={600} mb={6} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1}>Format</Text>
+                                <Text fw={700} mb={6} c="dimmed" size="xs" tt="uppercase" ls={1}>
+                                    Format Preset
+                                </Text>
                                 <SegmentedControl
                                     value={form.values.displayMode}
-                                    onChange={(val) => form.setFieldValue('displayMode', val)}
+                                    onChange={handleFormatChange}
                                     fullWidth
                                     size="sm"
                                     radius="md"
@@ -964,42 +1237,214 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                         indicator: {
                                             background: 'linear-gradient(45deg, #4dabf7, #da77f2)',
                                             boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                                        },
-                                        label: {
-                                            color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-9)',
-                                            fontWeight: 600,
-                                            fontSize: '13px'
-                                        },
-                                        control: {
-                                            border: 'none !important'
                                         }
                                     }}
                                 />
                             </Box>
                         </SimpleGrid>
 
-                        {/* Tags */}
-                        <TextInput
-                            label={<Text fw={600} mb={4} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1}>Tags</Text>}
-                            placeholder="#healing, #hope, #life"
-                            leftSection={<IconHash size={14} />}
-                            {...form.getInputProps('tags')}
-                            radius="md"
-                            size="sm"
-                            variant="filled"
-                            styles={{
-                                input: {
-                                    backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)',
-                                    color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-dark-9)',
-                                    borderRadius: '10px'
-                                }
-                            }}
-                        />
+                        {/* Background Presets (Conditional for Poetry & Shayari) */}
+                        <Collapse in={form.values.displayMode === 'Poetry' || form.values.displayMode === 'Shayari'}>
+                            <Paper
+                                p="md"
+                                radius="lg"
+                                withBorder
+                                style={{
+                                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                                    backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'
+                                }}
+                            >
+                                <Group justify="space-between" align="center" mb={8}>
+                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase" ls={1} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <IconPhoto size={14} /> Aesthetic Poetry & Shayari Background
+                                    </Text>
+                                    {bgPreviewUrl && (
+                                        <Button
+                                            variant="subtle"
+                                            color="red"
+                                            size="compact-xs"
+                                            onClick={clearBackgroundImage}
+                                        >
+                                            Remove Background
+                                        </Button>
+                                    )}
+                                </Group>
+
+                                {/* Preset Chips */}
+                                <Box mb="sm">
+                                    <Text size="11px" c="dimmed" mb={6}>Curated Atmospheric Presets:</Text>
+                                    <Group gap="xs" wrap="wrap">
+                                        {PRESET_BACKGROUNDS.map((bg) => {
+                                            const isChecked = form.values.backgroundImageUrl === bg.value && !form.values.backgroundImage;
+                                            return (
+                                                <Chip
+                                                    key={bg.value}
+                                                    size="xs"
+                                                    radius="xl"
+                                                    checked={isChecked}
+                                                    onChange={() => {
+                                                        form.setFieldValue('backgroundImage', null);
+                                                        form.setFieldValue('backgroundImageUrl', bg.value);
+                                                    }}
+                                                >
+                                                    {bg.label}
+                                                </Chip>
+                                            );
+                                        })}
+                                    </Group>
+                                </Box>
+
+                                {/* Dual Input: Upload File or Paste Image URL */}
+                                <Group grow gap="sm" mb={bgPreviewUrl ? 'sm' : 0}>
+                                    <FileInput
+                                        placeholder="Upload background image"
+                                        leftSection={<Upload size={14} />}
+                                        accept="image/*"
+                                        radius="md"
+                                        size="xs"
+                                        variant="filled"
+                                        clearable
+                                        value={form.values.backgroundImage}
+                                        onChange={(file) => {
+                                            form.setFieldValue('backgroundImage', file);
+                                            if (file) form.setFieldValue('backgroundImageUrl', '');
+                                        }}
+                                    />
+                                    <TextInput
+                                        placeholder="Or paste background image URL (https://...)"
+                                        leftSection={<LinkIcon size={14} />}
+                                        radius="md"
+                                        size="xs"
+                                        variant="filled"
+                                        value={form.values.backgroundImageUrl}
+                                        onChange={(e) => {
+                                            form.setFieldValue('backgroundImageUrl', e.target.value);
+                                            form.setFieldValue('backgroundImage', null);
+                                        }}
+                                    />
+                                </Group>
+
+                                {/* Live Visual Thumbnail Card Preview */}
+                                <AnimatePresence>
+                                    {bgPreviewUrl && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                                            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                            exit={{ opacity: 0, height: 0, scale: 0.98 }}
+                                            transition={{ duration: 0.25 }}
+                                        >
+                                            <Paper
+                                                withBorder
+                                                radius="md"
+                                                p="sm"
+                                                pos="relative"
+                                                mt="xs"
+                                                style={{
+                                                    backgroundImage: `url(${bgPreviewUrl})`,
+                                                    backgroundSize: 'cover',
+                                                    backgroundPosition: 'center',
+                                                    minHeight: '120px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'space-between',
+                                                    overflow: 'hidden',
+                                                    borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
+                                                    boxShadow: '0 8px 20px rgba(0,0,0,0.25)'
+                                                }}
+                                            >
+                                                {/* Translucent Backdrop Scrim */}
+                                                <Box
+                                                    style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        background: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0.25)',
+                                                        backdropFilter: 'blur(2px)',
+                                                        zIndex: 0
+                                                    }}
+                                                />
+
+                                                {/* Top Badge & Close Action Icon */}
+                                                <Group justify="space-between" align="center" style={{ position: 'relative', zIndex: 1 }}>
+                                                    <Badge
+                                                        size="xs"
+                                                        variant="filled"
+                                                        color="dark"
+                                                        style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(0,0,0,0.65)' }}
+                                                    >
+                                                        {form.values.backgroundImage ? 'Uploaded Image' : (PRESET_BACKGROUNDS.find(p => p.value === form.values.backgroundImageUrl)?.label || 'Custom Web URL')}
+                                                    </Badge>
+
+                                                    <ActionIcon
+                                                        color="red"
+                                                        variant="filled"
+                                                        radius="xl"
+                                                        size="xs"
+                                                        onClick={clearBackgroundImage}
+                                                        title="Remove background"
+                                                    >
+                                                        <X size={12} />
+                                                    </ActionIcon>
+                                                </Group>
+
+                                                {/* Live Stanza Typography Preview */}
+                                                <Center my="xs" style={{ position: 'relative', zIndex: 1 }}>
+                                                    <Text
+                                                        size="sm"
+                                                        fw={700}
+                                                        c="#ffffff"
+                                                        style={{
+                                                            fontFamily: 'Georgia, serif',
+                                                            fontStyle: 'italic',
+                                                            textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+                                                            letterSpacing: '0.8px',
+                                                            textAlign: 'center'
+                                                        }}
+                                                    >
+                                                        ✦ दिल की बात — Live Background Preview ✦
+                                                    </Text>
+                                                </Center>
+
+                                                <Text size="10px" c="#ffffff" opacity={0.8} ta="right" style={{ position: 'relative', zIndex: 1 }}>
+                                                    Applies to Poetry & Shayari canvas
+                                                </Text>
+                                            </Paper>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </Paper>
+                        </Collapse>
+
+                        {/* Tags & Quick Suggestions */}
+                        <Box>
+                            <TextInput
+                                label={<Text fw={700} mb={4} c="dimmed" size="xs" tt="uppercase" ls={1}>Tags</Text>}
+                                placeholder="#healing, #hope, #life, #dilkibaat"
+                                leftSection={<IconHash size={14} />}
+                                {...form.getInputProps('tags')}
+                                radius="md"
+                                size="sm"
+                                variant="filled"
+                            />
+                            <Group gap={6} mt={6} wrap="wrap">
+                                <Text size="10px" c="dimmed">Suggestions:</Text>
+                                {QUICK_TAGS.map(tag => (
+                                    <Badge
+                                        key={tag}
+                                        size="xs"
+                                        variant="light"
+                                        color="gray"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => handleAddTag(tag)}
+                                    >
+                                        + {tag}
+                                    </Badge>
+                                ))}
+                            </Group>
+                        </Box>
 
                         {/* Media Section */}
                         <Box>
-                            <Text fw={600} mb={6} c={isDark ? "dimmed" : "dark.3"} size="xs" tt="uppercase" ls={1}>Media</Text>
+                            <Text fw={700} mb={6} c="dimmed" size="xs" tt="uppercase" ls={1}>Attach Media</Text>
                             <Group grow gap="sm">
                                 <FileInput
                                     placeholder="Upload Image"
@@ -1014,17 +1459,6 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                         form.setFieldValue('image', file);
                                         form.setFieldValue('imageUrl', '');
                                     }}
-                                    styles={{
-                                        input: {
-                                            backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                            color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-dark-9)',
-                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)',
-                                            borderRadius: '10px'
-                                        },
-                                        placeholder: {
-                                            color: isDark ? 'var(--mantine-color-gray-6)' : 'var(--mantine-color-gray-5)'
-                                        }
-                                    }}
                                 />
                                 <TextInput
                                     placeholder="Or paste image URL"
@@ -1037,75 +1471,17 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                         form.setFieldValue('imageUrl', e.target.value);
                                         form.setFieldValue('image', null);
                                     }}
-                                    styles={{
-                                        input: {
-                                            backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                            color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-dark-9)',
-                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)',
-                                            borderRadius: '10px'
-                                        },
-                                        placeholder: {
-                                            color: isDark ? 'var(--mantine-color-gray-6)' : 'var(--mantine-color-gray-5)'
-                                        }
-                                    }}
                                 />
                             </Group>
-
-                            {/* Background Image - Conditional */}
-                            <Collapse in={form.values.displayMode === 'Poetry' || form.values.displayMode === 'Shayari'}>
-                                <TextInput
-                                    mt="sm"
-                                    label={<Text size="xs" c="dimmed" tt="uppercase">Background URL (Optional)</Text>}
-                                    placeholder="https://example.com/bg.jpg"
-                                    leftSection={<IconPhoto size={14} />}
-                                    radius="md"
-                                    size="sm"
-                                    variant="filled"
-                                    {...form.getInputProps('backgroundImageUrl')}
-                                    styles={{
-                                        input: {
-                                            backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)',
-                                            color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-dark-9)',
-                                            borderRadius: '10px'
-                                        }
-                                    }}
-                                />
-                            </Collapse>
                         </Box>
 
+                        {/* Image Preview */}
                         <AnimatePresence>
                             {previewUrl && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                >
-                                    <Paper
-                                        withBorder
-                                        radius="md"
-                                        p="xs"
-                                        pos="relative"
-                                        bg="rgba(0,0,0,0.2)"
-                                        style={{ overflow: 'hidden' }}
-                                    >
-                                        <Image
-                                            src={previewUrl}
-                                            alt="Preview"
-                                            radius="sm"
-                                            h={200}
-                                            fit="contain"
-                                        />
-                                        <ActionIcon
-                                            color="red"
-                                            variant="filled"
-                                            radius="xl"
-                                            size="sm"
-                                            pos="absolute"
-                                            top={8}
-                                            right={8}
-                                            onClick={clearImage}
-                                        >
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                                    <Paper withBorder radius="md" p="xs" pos="relative" bg="rgba(0,0,0,0.2)" style={{ overflow: 'hidden' }}>
+                                        <Image src={previewUrl} alt="Preview" radius="sm" h={200} fit="contain" />
+                                        <ActionIcon color="red" variant="filled" radius="xl" size="sm" pos="absolute" top={8} right={8} onClick={clearImage}>
                                             <X size={14} />
                                         </ActionIcon>
                                     </Paper>
@@ -1113,6 +1489,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                             )}
                         </AnimatePresence>
 
+                        {/* Publishing Footer */}
                         <Group justify="space-between" align="center" mt="xs">
                             <Group gap="xs">
                                 <Checkbox
@@ -1121,29 +1498,15 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                     {...form.getInputProps('isAnonymous', { type: 'checkbox' })}
                                     styles={{ label: { cursor: 'pointer', userSelect: 'none', fontSize: '13px' } }}
                                 />
-                                
+
+                                {/* Suicide Prevention Popover */}
                                 <Transition mounted={showSupport} transition="scale" duration={400}>
                                     {(styles) => (
                                         <Box style={styles}>
                                             <Popover width={280} position="top" withArrow shadow="xl" radius="md">
                                                 <Popover.Target>
                                                     <Tooltip label="We're here for you" position="top" withArrow>
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            color="pink" 
-                                                            radius="xl" 
-                                                            size="md"
-                                                            component={motion.button}
-                                                            animate={{ 
-                                                                scale: [1, 1.2, 1],
-                                                                opacity: [0.8, 1, 0.8]
-                                                            }}
-                                                            transition={{ 
-                                                                duration: 2, 
-                                                                repeat: Infinity,
-                                                                ease: "easeInOut"
-                                                            }}
-                                                        >
+                                                        <ActionIcon variant="light" color="pink" radius="xl" size="md">
                                                             <IconHeartHandshake size={18} />
                                                         </ActionIcon>
                                                     </Tooltip>
@@ -1153,17 +1516,10 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                                         <IconHeartHandshake size={20} color="var(--mantine-color-pink-6)" />
                                                         <Text size="sm" fw={700} c="pink">Dil Ki Baat is with you</Text>
                                                     </Group>
-                                                    <Text size="xs" mb="md" lh={1.5}>It sounds like you might be going through a heavy moment. You don't have to carry it alone. If you need someone to talk to, help is just a call away.</Text>
-                                                    <Button 
-                                                        component="a" 
-                                                        href="https://blog.opencounseling.com/suicide-hotlines/" 
-                                                        target="_blank" 
-                                                        variant="gradient" 
-                                                        gradient={{ from: 'pink', to: 'grape' }}
-                                                        size="xs" 
-                                                        fullWidth
-                                                        radius="md"
-                                                    >
+                                                    <Text size="xs" mb="md" lh={1.5}>
+                                                        It sounds like you might be going through a heavy moment. You don't have to carry it alone.
+                                                    </Text>
+                                                    <Button component="a" href="https://blog.opencounseling.com/suicide-hotlines/" target="_blank" variant="gradient" gradient={{ from: 'pink', to: 'grape' }} size="xs" fullWidth radius="md">
                                                         Find a Local Helpline
                                                     </Button>
                                                 </Popover.Dropdown>
@@ -1172,9 +1528,12 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                     )}
                                 </Transition>
                             </Group>
+
                             <Group>
                                 {onCancel && (
-                                    <Button variant="subtle" color="gray" onClick={onCancel} size="sm">Cancel</Button>
+                                    <Button variant="subtle" color="gray" onClick={onCancel} size="sm">
+                                        Cancel
+                                    </Button>
                                 )}
                                 <Button
                                     type="submit"
@@ -1184,7 +1543,7 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                                     gradient={{ from: 'blue', to: 'cyan', deg: 45 }}
                                     variant="gradient"
                                     style={{
-                                        boxShadow: '0 4px 15px rgba(34, 184, 207, 0.3)',
+                                        boxShadow: '0 4px 15px rgba(34, 184, 207, 0.35)',
                                         transition: 'transform 0.2s',
                                     }}
                                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -1196,7 +1555,17 @@ const PostForm = ({ initialData, onSubmit, onCancel, submitLabel = "Post", loadi
                         </Group>
                     </Stack>
                 </Paper>
-            </motion.div>
+            </Box>
+
+            {/* Social Quote Card Exporter Modal */}
+            <QuoteCardModal
+                opened={quoteCardModalOpen}
+                onClose={() => setQuoteCardModalOpen(false)}
+                content={form.values.content}
+                mood={form.values.mood}
+                displayMode={form.values.displayMode}
+                isAnonymous={form.values.isAnonymous}
+            />
         </form>
     );
 };

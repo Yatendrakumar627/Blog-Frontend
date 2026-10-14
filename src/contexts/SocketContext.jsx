@@ -88,10 +88,12 @@ export const SocketProvider = ({ children }) => {
         newSocket.disconnect();
       };
     } else {
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
+      setSocket((current) => {
+        if (current) {
+          current.disconnect();
+        }
+        return null;
+      });
     }
   }, [user, fetchUnreadCount]);
 

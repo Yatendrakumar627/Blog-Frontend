@@ -1,5 +1,21 @@
 /* Global Overrides for Mantine Components to replace invalid inline styles */
 
+/* Desktop UI density.
+   Mantine derives every rem-based spacing and font-size from --mantine-scale,
+   so one value tightens the whole interface coherently. 0.8 is the practical
+   floor: body copy stays ~12.8px and click targets remain comfortable. Going
+   lower mainly shrinks text (accessibility cost) rather than tightening layout.
+   Applied on wide viewports only; small screens render 1:1 for touch. */
+:root {
+    --ui-scale-desktop: 0.8;
+}
+
+@media (min-width: 1024px) {
+    :root {
+        --mantine-scale: var(--ui-scale-desktop) !important;
+    }
+}
+
 /* Avatar Overrides */
 .mantine-Avatar-root {
     width: var(--avatar-size) !important;
@@ -13,6 +29,15 @@
 .mantine-Tabs-tab:focus[data-active] {
     outline: none;
     box-shadow: none;
+}
+
+/* SegmentedControl active label colors.
+   Mantine v8 styles prop is inline-only, so [data-active]
+   state rules live here. !important is needed to beat the
+   inline color set via the styles prop. */
+.seg-label-discover-following[data-active],
+.seg-label-canvas-preview[data-active] {
+    color: #ffffff !important;
 }
 
 .mantine-UnstyledButton-root[data-active],
@@ -61,3 +86,58 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
+
+/* SegmentedControl Active Contrast & High Readability */
+[data-mantine-color-scheme="dark"] .mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
+[data-mantine-color-scheme="dark"] .mantine-SegmentedControl-label[data-active] {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+[data-mantine-color-scheme="light"] .mantine-SegmentedControl-control[data-active] .mantine-SegmentedControl-label,
+[data-mantine-color-scheme="light"] .mantine-SegmentedControl-label[data-active] {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+
+/* Explore Page Tabs & Search Input */
+.explore-tabs .mantine-Tabs-list {
+    border-bottom: 1px solid var(--mantine-color-default-border);
+    margin-bottom: 14px;
+    gap: 8px;
+}
+
+.explore-tabs .mantine-Tabs-tab {
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--mantine-color-dimmed);
+    background-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.explore-tabs .mantine-Tabs-tab:hover {
+    background-color: transparent;
+    color: var(--mantine-color-text);
+}
+
+.explore-tabs .mantine-Tabs-tab[data-active] {
+    color: var(--mantine-color-text) !important;
+    border-bottom-color: var(--mantine-primary-color-filled) !important;
+    background-color: transparent;
+}
+
+.explore-search-input input {
+    background-color: var(--mantine-color-body);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--mantine-color-default-border);
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.explore-search-input input:focus {
+    border-color: var(--mantine-primary-color-filled);
+    box-shadow: 0 2px 8px rgba(34, 139, 230, 0.2);
+}

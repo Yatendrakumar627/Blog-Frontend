@@ -3,7 +3,7 @@ import AppLoader from './AppLoader';
 import './BlogCard.css';
 
 import { Heart, MessageCircle, MessageSquare, Share2, Trash2, Edit, Send, Bookmark, MoreHorizontal, Download } from 'lucide-react';
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import useAuthStore from '../store/authStore';
@@ -11,7 +11,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { useDisclosure } from '@mantine/hooks';
 import PostForm from './PostForm';
-import { useLikePost } from '../hooks/usePosts';
+import { useLikePost, useUpdatePost } from '../hooks/usePosts';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 // import html2canvas from 'html2canvas'; // Dynamically imported
@@ -30,15 +30,18 @@ const BlogCard = memo(({ blog }) => {
     const { user, updateUser } = useAuthStore();
     const navigate = useNavigate();
     const { mutate: likePost } = useLikePost();
+    const updatePostMutation = useUpdatePost();
     const { colorScheme } = useMantineColorScheme();
     const isDark = colorScheme === 'dark';
 
     // Derived state from props
     const likes = blog?.likes || [];
     const reactions = blog?.reactions || [];
-    const userReaction = user && reactions.find(r => (r.user?._id || r.user) === user._id)?.type;
-    const isLiked = !!userReaction || (user && blog && likes.includes(user._id));
-    const isBookmarked = user && user.bookmarks && blog && user.bookmarks.includes(blog._id);
+    const userReaction = user && reactions.find(r => String(r.user?._id || r.user) === String(user._id))?.type;
+    const isLiked = !!userReaction || (user && blog && likes.some(id => String(id?._id || id) === String(user._id)));
+    const isBookmarked = user && user.bookmarks && blog && user.bookmarks.some(id => String(id?._id || id) === String(blog._id));
+    const totalLikesCount = Math.max(likes.length, reactions.length);
+    const currentReaction = userReaction ? REACTIONS.find(r => r.value === userReaction) : null;
 
     const [comments, setComments] = useState([]); // Initialize empty, fetch on demand
     const [commentsCount, setCommentsCount] = useState(blog?.commentsCount || 0);
@@ -47,7 +50,7 @@ const BlogCard = memo(({ blog }) => {
     const [commentText, setCommentText] = useState('');
 
     // Removed initial comments fetch to improve performance
-    const [opened, { open, close }] = useDisclosure(false);
+    const [opened, { close }] = useDisclosure(false);
     const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
     const [commentToDelete, setCommentToDelete] = useState(null);
     const [deletePostModalOpened, { open: openDeletePostModal, close: closeDeletePostModal }] = useDisclosure(false);
@@ -58,7 +61,23 @@ const BlogCard = memo(({ blog }) => {
     const [downloading, setDownloading] = useState(false);
     const [reactionMenuOpen, setReactionMenuOpen] = useState(false);
     const [menuLocked, setMenuLocked] = useState(false);
-    const cardRef = useRef(null);
+
+    const timerRef = useRef(null);
+    const isLongPress = useRef(false);
+
+    const handleTouchStart = () => {
+        isLongPress.current = false;
+        timerRef.current = setTimeout(() => {
+            isLongPress.current = true;
+            setReactionMenuOpen(true);
+        }, 450);
+    };
+
+    const handleTouchEnd = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+        }
+    };
 
     const handleReactionMenuChange = (isOpen) => {
         if (menuLocked && isOpen) return;
@@ -71,6 +90,17 @@ const BlogCard = memo(({ blog }) => {
             return;
         }
         likePost({ id: blog._id, reactionType });
+    };
+
+    const handleLikeClick = () => {
+        if (isLongPress.current) {
+            isLongPress.current = false;
+            return;
+        }
+        handleLike();
+        setReactionMenuOpen(false);
+        setMenuLocked(true);
+        setTimeout(() => setMenuLocked(false), 500);
     };
 
     const toggleComments = async () => {
@@ -211,25 +241,25 @@ const BlogCard = memo(({ blog }) => {
     };
 
     const handleUpdate = async (formData) => {
-        try {
-            const { data } = await api.put(`/blogs/${displayBlog._id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            setDisplayBlog(data);
-            setIsEditing(false);
-            notifications.show({
-                title: 'Success',
-                message: 'Post updated successfully',
-                color: 'green',
-            });
-        } catch (error) {
-            console.error('Update error:', error);
+        const blogId = blog?._id || displayBlog?._id;
+        if (!blogId) {
             notifications.show({
                 title: 'Error',
-                message: 'Could not update post',
+                message: 'Post ID is missing',
                 color: 'red',
             });
+            return;
         }
+
+        updatePostMutation.mutate(
+            { id: blogId, formData },
+            {
+                onSuccess: (data) => {
+                    if (data) setDisplayBlog(data);
+                    setIsEditing(false);
+                }
+            }
+        );
     };
 
     const handleDownloadImage = async () => {
@@ -518,9 +548,6 @@ const BlogCard = memo(({ blog }) => {
                 }
             });
 
-            // Measure the actual height needed
-            const actualHeight = wrapper.offsetHeight;
-
             const html2canvas = (await import('html2canvas')).default;
             const canvas = await html2canvas(wrapper, {
                 backgroundColor: isDarkMode ? '#15151a' : '#f4f4f8',
@@ -570,13 +597,9 @@ const BlogCard = memo(({ blog }) => {
         return user?.displayName || user?.username || 'Unknown';
     };
 
-    const getUsername = (user) => {
-        return user?.username || 'unknown';
-    };
 
 
-
-    const isAuthor = user && blog && blog.author && (user._id === (blog.author._id || blog.author));
+    const isAuthor = user && blog && blog.author && (String(user._id) === String(blog.author._id || blog.author));
 
     if (!blog) return null;
 
@@ -633,15 +656,17 @@ const BlogCard = memo(({ blog }) => {
                 </Modal>
 
                 <Card
-                    shadow="md"
-                    p="lg"
+                    shadow="sm"
+                    p={{ base: 10, sm: 'md', md: 'lg' }}
                     radius="lg"
                     withBorder
-                    mb="lg"
+                    mb={{ base: 'sm', sm: 'md' }}
                     id={`blog-card-${displayBlog._id}`}
                     style={{
-                        transition: 'all 0.3s ease',
+                        transition: 'all 0.25s ease',
                         width: '100%',
+                        backgroundColor: isDark ? 'rgba(26, 27, 30, 0.95)' : '#ffffff',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
                         '&:hover': {
                             boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
                             transform: 'translateY(-2px)'
@@ -653,11 +678,13 @@ const BlogCard = memo(({ blog }) => {
                             initialData={{
                                 ...displayBlog,
                                 tags: displayBlog.tags ? displayBlog.tags.join(', ') : '',
-                                // Ensure initialData structure matches what PostForm expects
+                                backgroundImageUrl: displayBlog.backgroundImage || '',
+                                imageUrl: displayBlog.mediaUrl || '',
                             }}
                             onSubmit={handleUpdate}
                             onCancel={() => setIsEditing(false)}
                             submitLabel="Save Changes"
+                            loading={updatePostMutation.isPending}
                         />
                     ) : (
                         <>
@@ -987,20 +1014,20 @@ const BlogCard = memo(({ blog }) => {
                                                     ? 'radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 100%)'
                                                     : 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 100%)',
                                                 ...(displayBlog.displayMode === 'Poetry' ? {
-                                                    fontFamily: "'Playfair Display', serif",
-                                                    textAlign: 'justify',
+                                                    fontFamily: "'Playfair Display', Georgia, serif",
+                                                    textAlign: 'center',
                                                     whiteSpace: 'pre-line',
-                                                    lineHeight: 1.2,
-                                                    fontSize: 'clamp(0.45rem, 2.5vw, 0.85rem)',
-                                                    textShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                                    lineHeight: 1.4,
+                                                    fontSize: 'clamp(0.9rem, 3.2vw, 1.25rem)',
+                                                    textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',
                                                     letterSpacing: '0.01em',
                                                 } : {
                                                     fontFamily: "'Dancing Script', cursive",
-                                                    textAlign: 'justify',
+                                                    textAlign: 'center',
                                                     whiteSpace: 'pre-line',
-                                                    lineHeight: 1.0,
-                                                    fontSize: 'clamp(0.5rem, 2.8vw, 1.2rem)',
-                                                    textShadow: '0 2px 3px rgba(255,255,255,0.8), 0 1px 1px rgba(0,0,0,0.1)',
+                                                    lineHeight: 1.35,
+                                                    fontSize: 'clamp(1.1rem, 3.8vw, 1.6rem)',
+                                                    textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',
                                                 })
                                             }}
                                         >
@@ -1104,81 +1131,96 @@ const BlogCard = memo(({ blog }) => {
                             <Group
                                 className="no-export"
                                 mt={(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? 'sm' : 'md'}
-                                gap="xs"
-                                px={0}
+                                justify="space-between"
+                                align="center"
                                 wrap="nowrap"
                                 style={{
-                                    borderTop: '1px solid var(--mantine-color-gray-2)',
-                                    paddingTop: '12px',
-                                    overflowX: 'auto',
-                                    scrollbarWidth: 'none',
-                                    msOverflowStyle: 'none'
+                                    borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                    paddingTop: '10px',
                                 }}
                             >
-                                <motion.div
-                                    whileHover={{ scale: 1.05 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                >
+                                {/* Left: Engagement (Reactions + Comments) */}
+                                <Group gap="xs" wrap="nowrap">
                                     <Menu 
-                                        shadow="md" 
-                                        width={200} 
+                                        shadow="lg" 
                                         trigger="hover" 
                                         opened={reactionMenuOpen}
                                         onChange={handleReactionMenuChange}
                                         openDelay={100} 
-                                        closeDelay={400} 
+                                        closeDelay={300} 
                                         position="top-start" 
                                         withArrow 
                                         withinPortal
                                     >
                                         <Menu.Target>
                                             <UnstyledButton
-                                                onClick={() => {
-                                                    handleLike();
-                                                    setReactionMenuOpen(false);
-                                                    setMenuLocked(true);
-                                                    setTimeout(() => setMenuLocked(false), 500);
-                                                }}
+                                                onClick={handleLikeClick}
+                                                onTouchStart={handleTouchStart}
+                                                onTouchEnd={handleTouchEnd}
                                                 style={{
-                                                    display: 'flex',
+                                                    display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    gap: '6px',
-                                                    padding: '8px 12px',
-                                                    borderRadius: '12px',
-                                                    transition: 'all 0.2s ease',
-                                                    backgroundColor: isLiked ? (isDark ? 'rgba(230, 73, 128, 0.15)' : 'var(--mantine-color-pink-0)') : 'transparent',
-                                                    color: userReaction ? `var(--mantine-color-${REACTIONS.find(r => r.value === userReaction)?.color}-6)` : (isLiked ? 'var(--mantine-color-pink-6)' : 'var(--mantine-color-gray-6)'),
-                                                    border: isLiked ? `1px solid ${isDark ? 'rgba(230, 73, 128, 0.3)' : 'var(--mantine-color-pink-2)'}` : '1px solid transparent',
-                                                    '&:hover': {
-                                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'var(--mantine-color-gray-0)',
-                                                    }
+                                                    gap: '7px',
+                                                    padding: '6px 12px',
+                                                    height: '36px',
+                                                    borderRadius: '10px',
+                                                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                    backgroundColor: isLiked 
+                                                        ? (isDark ? 'rgba(230, 73, 128, 0.15)' : 'rgba(230, 73, 128, 0.08)')
+                                                        : (isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
+                                                    color: currentReaction 
+                                                        ? `var(--mantine-color-${currentReaction.color}-6)`
+                                                        : (isLiked ? 'var(--mantine-color-pink-6)' : 'var(--mantine-color-dimmed)'),
+                                                    border: isLiked 
+                                                        ? `1px solid ${isDark ? 'rgba(230, 73, 128, 0.3)' : 'rgba(230, 73, 128, 0.22)'}`
+                                                        : `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)'}`,
+                                                    cursor: 'pointer',
+                                                    userSelect: 'none',
+                                                    WebkitTapHighlightColor: 'transparent',
                                                 }}
                                             >
-                                                <motion.div
-                                                    animate={{ scale: isLiked ? [1, 1.2, 1] : 1 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, fontSize: 18 }}
+                                                <motion.span
+                                                    animate={{ scale: isLiked ? [1, 1.25, 1] : 1 }}
+                                                    transition={{ duration: 0.25 }}
+                                                    style={{
+                                                        fontSize: '18px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        lineHeight: 1
+                                                    }}
                                                 >
-                                                    {userReaction ? (
-                                                        REACTIONS.find(r => r.value === userReaction)?.icon
+                                                    {currentReaction ? (
+                                                        <span role="img" aria-label={currentReaction.label}>{currentReaction.icon}</span>
                                                     ) : (
-                                                        <Heart fill={isLiked ? 'currentColor' : 'none'} size={20} />
+                                                        <Heart fill={isLiked ? 'currentColor' : 'none'} size={18} />
                                                     )}
-                                                </motion.div>
-                                                <Text size="sm" fw={700}>{likes.length}</Text>
+                                                </motion.span>
+                                                <Text size="sm" fw={600} style={{ lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                                                    {totalLikesCount}
+                                                </Text>
                                             </UnstyledButton>
                                         </Menu.Target>
 
-                                        <Menu.Dropdown p="xs" style={{ borderRadius: '16px' }}>
-                                            <Menu.Label>Empathy Reactions</Menu.Label>
-                                            <Group gap="xs" p="xs">
+                                        <Menu.Dropdown 
+                                            p={4} 
+                                            style={{ 
+                                                borderRadius: '28px',
+                                                backgroundColor: isDark ? '#1e1f24' : '#ffffff',
+                                                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.08)',
+                                                boxShadow: isDark
+                                                    ? '0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.2)'
+                                                    : '0 12px 30px rgba(0, 0, 0, 0.12)',
+                                            }}
+                                        >
+                                            <Group gap={4} p={2} wrap="nowrap">
                                                 {REACTIONS.map((reaction) => (
                                                     <Tooltip key={reaction.value} label={reaction.label} position="top" withArrow>
                                                         <ActionIcon
                                                             variant={userReaction === reaction.value ? 'light' : 'subtle'}
                                                             color={reaction.color}
-                                                            size="xl"
-                                                            radius="md"
+                                                            size="lg"
+                                                            radius="xl"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleLike(reaction.value);
@@ -1187,148 +1229,117 @@ const BlogCard = memo(({ blog }) => {
                                                                 setTimeout(() => setMenuLocked(false), 500);
                                                             }}
                                                             style={{
-                                                                fontSize: '22px',
-                                                                transition: 'transform 0.2s ease',
-                                                                '&:hover': { transform: 'scale(1.2)' }
+                                                                fontSize: '20px',
+                                                                transition: 'transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                                                '&:hover': { transform: 'scale(1.25)' }
                                                             }}
                                                         >
-                                                            {reaction.icon}
+                                                            <span role="img" aria-label={reaction.label} style={{ lineHeight: 1 }}>
+                                                                {reaction.icon}
+                                                            </span>
                                                         </ActionIcon>
                                                     </Tooltip>
                                                 ))}
                                             </Group>
                                         </Menu.Dropdown>
                                     </Menu>
-                                </motion.div>
 
-                                <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                >
                                     <Tooltip label="Comments" position="top" withArrow zIndex={10000} withinPortal>
                                         <UnstyledButton
                                             onClick={toggleComments}
                                             style={{
-                                                display: 'flex',
+                                                display: 'inline-flex',
                                                 alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '8px',
-                                                borderRadius: '8px',
-                                                transition: 'all 0.2s ease',
-                                                color: 'var(--mantine-color-gray-6)',
-                                                '&:hover': {
-                                                    backgroundColor: 'var(--mantine-color-blue-0)',
-                                                    color: 'var(--mantine-color-blue-6)'
-                                                }
+                                                gap: '7px',
+                                                padding: '6px 12px',
+                                                height: '36px',
+                                                borderRadius: '10px',
+                                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                backgroundColor: commentsOpen
+                                                    ? (isDark ? 'rgba(51, 154, 240, 0.12)' : 'rgba(51, 154, 240, 0.08)')
+                                                    : (isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
+                                                color: commentsOpen ? 'var(--mantine-color-blue-5)' : 'var(--mantine-color-dimmed)',
+                                                border: commentsOpen
+                                                    ? `1px solid ${isDark ? 'rgba(51, 154, 240, 0.28)' : 'rgba(51, 154, 240, 0.22)'}`
+                                                    : `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)'}`,
+                                                cursor: 'pointer',
+                                                userSelect: 'none',
+                                                WebkitTapHighlightColor: 'transparent',
                                             }}
                                         >
-                                            <MessageCircle size={20} />
-                                            <Text size="sm" fw={500}>{commentsCount}</Text>
+                                            <MessageCircle size={18} />
+                                            <Text size="sm" fw={600} style={{ lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                                                {commentsCount}
+                                            </Text>
                                         </UnstyledButton>
                                     </Tooltip>
-                                </motion.div>
+                                </Group>
 
-                                {user && (
-                                    <motion.div
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                    >
+                                {/* Right: Utility & Author actions */}
+                                <Group gap={4} wrap="nowrap">
+                                    {user && (
                                         <Tooltip label="Download as Image" position="top" withArrow zIndex={10000} withinPortal>
                                             <ActionIcon
-                                                variant="transparent"
+                                                variant="subtle"
+                                                color="gray"
                                                 onClick={handleDownloadImage}
                                                 loading={downloading}
-                                                size="lg"
+                                                size={36}
+                                                radius="md"
                                                 style={{
-                                                    color: 'var(--mantine-color-gray-6)',
-                                                    '&:hover': {
-                                                        color: 'var(--mantine-color-pink-6)',
-                                                        backgroundColor: 'var(--mantine-color-pink-0)'
-                                                    }
+                                                    color: 'var(--mantine-color-dimmed)',
+                                                    transition: 'all 0.2s ease',
                                                 }}
                                             >
-                                                <Download size={20} />
+                                                <Download size={18} />
                                             </ActionIcon>
                                         </Tooltip>
-                                    </motion.div>
-                                )}
+                                    )}
 
-                                <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                >
                                     <Tooltip label="Share Link" position="top" withArrow zIndex={10000} withinPortal>
                                         <ActionIcon
-                                            variant="transparent"
+                                            variant="subtle"
+                                            color="gray"
                                             onClick={handleShare}
-                                            size="lg"
+                                            size={36}
+                                            radius="md"
                                             style={{
-                                                color: 'var(--mantine-color-gray-6)',
-                                                '&:hover': {
-                                                    color: 'var(--mantine-color-green-6)',
-                                                    backgroundColor: 'var(--mantine-color-green-0)'
-                                                }
+                                                color: 'var(--mantine-color-dimmed)',
+                                                transition: 'all 0.2s ease',
                                             }}
                                         >
-                                            <Share2 size={20} />
+                                            <Share2 size={18} />
                                         </ActionIcon>
                                     </Tooltip>
-                                </motion.div>
 
-
-
-                                {isAuthor && (
-                                    <>
-                                        <motion.div
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                        >
+                                    {isAuthor && (
+                                        <>
                                             <Tooltip label="Edit post" position="top" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
-                                                    variant="transparent"
+                                                    variant="subtle"
                                                     color="blue"
                                                     onClick={() => setIsEditing(true)}
-                                                    size="lg"
-                                                    style={{
-                                                        '&:hover': {
-                                                            color: 'var(--mantine-color-blue-7)',
-                                                            backgroundColor: 'var(--mantine-color-blue-0)'
-                                                        }
-                                                    }}
+                                                    size={36}
+                                                    radius="md"
                                                 >
-                                                    <Edit size={20} />
+                                                    <Edit size={18} />
                                                 </ActionIcon>
                                             </Tooltip>
-                                        </motion.div>
 
-                                        <motion.div
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                        >
                                             <Tooltip label="Delete post" position="top" withArrow zIndex={10000} withinPortal>
                                                 <ActionIcon
-                                                    variant="transparent"
+                                                    variant="subtle"
                                                     color="red"
                                                     onClick={handleDelete}
-                                                    size="lg"
-                                                    style={{
-                                                        '&:hover': {
-                                                            color: 'var(--mantine-color-red-7)',
-                                                            backgroundColor: 'var(--mantine-color-red-0)'
-                                                        }
-                                                    }}
+                                                    size={36}
+                                                    radius="md"
                                                 >
-                                                    <Trash2 size={20} />
+                                                    <Trash2 size={18} />
                                                 </ActionIcon>
                                             </Tooltip>
-                                        </motion.div>
-                                    </>
-                                )}
+                                        </>
+                                    )}
+                                </Group>
                             </Group>
 
                             <Collapse in={commentsOpen} className="no-export">
@@ -1363,10 +1374,13 @@ const BlogCard = memo(({ blog }) => {
                                                     <div style={{ flex: 1 }}>
                                                         <Group justify="space-between" mb={4}>
                                                             <Group gap="xs">
-                                                                <Text size="sm" fw={600} sx={(theme) => ({
-                                                                    cursor: 'pointer',
-                                                                    color: theme.colorScheme === 'dark' ? theme.white : theme.colors.dark[9]
-                                                                })}
+                                                                <Text
+                                                                    size="sm"
+                                                                    fw={600}
+                                                                    style={{
+                                                                        cursor: 'pointer',
+                                                                        color: 'var(--mantine-color-text)'
+                                                                    }}
                                                                     onClick={() => navigate(`/profile/${c.author?.username}`)}
                                                                 >
                                                                     {getDisplayName(c.author)}

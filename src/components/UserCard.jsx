@@ -1,6 +1,6 @@
 import { Card, Avatar, Text, Button, Group, Indicator, useMantineColorScheme } from '@mantine/core';
 import { IconUserPlus, IconUserCheck } from '@tabler/icons-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { notifications } from '@mantine/notifications';
@@ -8,24 +8,22 @@ import useAuthStore from '../store/authStore';
 
 const UserCard = ({ user, initialIsFollowing = false, onFollowToggle }) => {
     const { user: currentUser } = useAuthStore();
-    const navigate = useNavigate();
     const { colorScheme } = useMantineColorScheme();
-
-    if (!user) return null;
 
     // Check if current user is in the followers list or if the target user is in the current user's following list
     const isAlreadyFollowing = (
-        (user.followers && currentUser && (
+        (user?.followers && currentUser && (
             user.followers.includes(currentUser._id) ||
             user.followers.some(f => f._id === currentUser._id || f === currentUser._id)
         )) ||
         (currentUser && currentUser.following && (
-            currentUser.following.includes(user._id) ||
-            currentUser.following.some(f => f === user._id || f._id === user._id)
+            currentUser.following.includes(user?._id) ||
+            currentUser.following.some(f => f === user?._id || f._id === user?._id)
         ))
     );
 
     const [isFollowing, setIsFollowing] = useState(initialIsFollowing || isAlreadyFollowing);
+    const [loading, setLoading] = useState(false);
 
     // Update state if user prop changes or currentUser loads
     useEffect(() => {
@@ -44,7 +42,7 @@ const UserCard = ({ user, initialIsFollowing = false, onFollowToggle }) => {
         }
     }, [user, currentUser]);
 
-    const [loading, setLoading] = useState(false);
+    if (!user) return null;
 
     const handleFollow = async (e) => {
         e.stopPropagation(); // Prevent card click

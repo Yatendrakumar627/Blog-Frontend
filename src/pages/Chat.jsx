@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -301,17 +301,18 @@ const Chat = () => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const [pendingMessages, setPendingMessages] = useState(new Set());
+    const [, setPendingMessages] = useState(new Set());
     const [replyingTo, setReplyingTo] = useState(null);
     const inputRef = useRef(null);
     const virtuosoRef = useRef(null);
     const typingTimeoutRef = useRef(null);
+    const messagesCountRef = useRef(0);
+    messagesCountRef.current = messages.length;
     const [loading, setLoading] = useState(true);
     const [trashLoading, setTrashLoading] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const isMobile = useMediaQuery('(max-width: 768px)');
-    const isTablet = useMediaQuery('(max-width: 1024px)');
     const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
     const isDark = computedColorScheme === 'dark';
 
@@ -360,7 +361,7 @@ const Chat = () => {
     }, [socket, activeConversation, user]);
 
     // Helper functions that need to be defined before use
-    const fetchConversations = async () => {
+    const fetchConversations = useCallback(async () => {
         try {
             const { data } = await api.get('/chat/conversations');
             // Filter out conversations where the other user is deleted or conversation is in trash
@@ -376,9 +377,9 @@ const Chat = () => {
             console.error('Error fetching conversations:', error);
             setLoading(false);
         }
-    };
+    }, [user]);
 
-    const fetchTrashedConversations = async () => {
+    const fetchTrashedConversations = useCallback(async () => {
         try {
             setTrashLoading(true);
             const { data } = await api.get('/chat/trash');
@@ -393,9 +394,9 @@ const Chat = () => {
         } finally {
             setTrashLoading(false);
         }
-    };
+    }, []);
 
-    const markAsReadLocal = async (conversationId) => {
+    const markAsReadLocal = useCallback(async (conversationId) => {
         try {
             await api.put(`/chat/read/${conversationId}`);
             const { data } = await api.get('/chat/unread-count');
@@ -403,9 +404,9 @@ const Chat = () => {
         } catch (error) {
             console.error('Error marking as read:', error);
         }
-    };
+    }, [setUnreadCount]);
 
-    const fetchMessages = async (conversationId) => {
+    const fetchMessages = useCallback(async (conversationId) => {
         try {
             const { data } = await api.get(`/chat/messages/${conversationId}`);
             setMessages(data);
@@ -413,7 +414,7 @@ const Chat = () => {
         } catch (error) {
             console.error('Error fetching messages:', error);
         }
-    };
+    }, []);
 
     const handleSelectConversation = (conv) => {
         setActiveConversation(conv);
@@ -425,12 +426,12 @@ const Chat = () => {
         setActiveConversation(null);
     };
 
-    // Scroll to bottom helper
-    const scrollToBottom = () => {
+    // Scroll to bottom helper (stable identity; reads latest message count via ref)
+    const scrollToBottom = useCallback(() => {
         setTimeout(() => {
-            virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, align: 'end' });
+            virtuosoRef.current?.scrollToIndex({ index: messagesCountRef.current - 1, align: 'end' });
         }, 100);
-    };
+    }, []);
 
     // Instant conversation fetch - no debouncing
     const debouncedFetchConversations = useCallback(() => {
@@ -448,7 +449,7 @@ const Chat = () => {
             fetchUnreadCount();
         }
         debouncedFetchConversations();
-    }, [activeConversation, debouncedFetchConversations, fetchUnreadCount]);
+    }, [activeConversation, debouncedFetchConversations, fetchUnreadCount, scrollToBottom, markAsReadLocal]);
 
     // Optimized send handler
     const handleSendMessage = useCallback(async (e) => {
@@ -518,7 +519,27 @@ const Chat = () => {
             // Focus back to input
             inputRef.current?.focus();
         }
-    }, [newMessage, activeConversation, isSending, user, replyingTo, debouncedFetchConversations]);
+    }, [newMessage, activeConversation, isSending, user, replyingTo, debouncedFetchConversations, scrollToBottom]);
+
+    const restoreConversation = useCallback(async (conversationId) => {
+        try {
+            await api.put(`/chat/restore/${conversationId}`);
+            fetchConversations();
+            fetchTrashedConversations();
+            notifications.show({
+                title: 'Restored',
+                message: 'Conversation has been restored to your chats',
+                color: 'green'
+            });
+        } catch (error) {
+            console.error('Error restoring conversation:', error);
+            notifications.show({
+                title: 'Error',
+                message: 'Failed to restore conversation',
+                color: 'red'
+            });
+        }
+    }, [fetchConversations, fetchTrashedConversations]);
 
     useEffect(() => {
         if (user && socket) {
@@ -557,12 +578,12 @@ const Chat = () => {
                 }
             });
 
-            socket.on('conversation_moved_to_trash', (data) => {
+            socket.on('conversation_moved_to_trash', () => {
                 fetchConversations();
                 fetchTrashedConversations();
             });
 
-            socket.on('conversation_restored', (data) => {
+            socket.on('conversation_restored', () => {
                 fetchConversations();
                 fetchTrashedConversations();
             });
@@ -669,7 +690,7 @@ const Chat = () => {
                 }
             });
 
-            socket.on('user_stop_typing', ({ conversationId, userId }) => {
+            socket.on('user_stop_typing', ({ userId }) => {
                 setTypingUsers(prev => {
                     const next = new Set(prev);
                     next.delete(userId);
@@ -693,7 +714,7 @@ const Chat = () => {
                 socket.off('user_stop_typing');
             };
         }
-    }, [user, socket, activeConversation]);
+    }, [user, socket, activeConversation, fetchConversations, fetchTrashedConversations, fetchUnreadCount, handleNewMessage, restoreConversation]);
 
     const handleReaction = async (messageId, emoji) => {
         try {
@@ -842,26 +863,6 @@ const Chat = () => {
 
     const cancelReply = () => {
         setReplyingTo(null);
-    };
-
-    const restoreConversation = async (conversationId) => {
-        try {
-            await api.put(`/chat/restore/${conversationId}`);
-            fetchConversations();
-            fetchTrashedConversations();
-            notifications.show({
-                title: 'Restored',
-                message: 'Conversation has been restored to your chats',
-                color: 'green'
-            });
-        } catch (error) {
-            console.error('Error restoring conversation:', error);
-            notifications.show({
-                title: 'Error',
-                message: 'Failed to restore conversation',
-                color: 'red'
-            });
-        }
     };
 
     const handleUpdateTheme = async (theme) => {
@@ -1129,7 +1130,6 @@ const Chat = () => {
                             />
                             <Button
                                 onClick={() => {
-                                    const theme = generateThemeFromColor(customColor);
                                     // We'll store the color in the theme field as "custom:HEX"
                                     handleUpdateTheme(`custom:${customColor}`);
                                 }}
@@ -1268,7 +1268,7 @@ const Chat = () => {
                                                     minHeight: isMobile ? '60px' : 'auto',
                                                     borderBottom: `1px solid ${isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)'}`
                                                 }}
-                                                sx={(theme) => ({
+                                                sx={() => ({
                                                     '&:hover': {
                                                         backgroundColor: isDark ? 'rgba(255, 107, 107, 0.15)' : 'rgba(255, 107, 107, 0.1)'
                                                     }

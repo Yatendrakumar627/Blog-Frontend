@@ -3,7 +3,7 @@ import AppLoader from '../components/AppLoader';
 import { useForm } from '@mantine/form';
 import useAuthStore from '../store/authStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { IconCheck, IconX, IconUser, IconMail, IconLock, IconSignature } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
@@ -59,44 +59,42 @@ const Register = () => {
         },
     });
 
-    // Check username availability
-    const checkUsernameAvailability = async (username) => {
-        if (!username || username.length < 3) {
-            setUsernameAvailable(null);
-            return;
-        }
-
-        if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-            setUsernameAvailable(false);
-            return;
-        }
-
-        setCheckingUsername(true);
-        try {
-            const { data } = await api.get(`/auth/check-username/${encodeURIComponent(username)}`);
-            setUsernameAvailable(data.available);
-            setUsernameError(data.available ? '' : 'Username is already taken');
-            if (!data.available) {
-                form.setFieldError('username', 'Username is already taken');
-            } else if (form.errors.username === 'Username is already taken') {
-                form.clearFieldError('username');
-            }
-        } catch (error) {
-            setUsernameAvailable(null);
-        } finally {
-            setCheckingUsername(false);
-        }
-    };
-
     // Debounced username check
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (form.values.username && form.values.username.length >= 3 && /^[a-zA-Z0-9_]+$/.test(form.values.username)) {
-                checkUsernameAvailability(form.values.username);
+        const username = form.values.username;
+        const timer = setTimeout(async () => {
+            if (!username || username.length < 3) {
+                setUsernameAvailable(null);
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                setUsernameAvailable(false);
+                return;
+            }
+
+            setCheckingUsername(true);
+            try {
+                const { data } = await api.get(`/auth/check-username/${encodeURIComponent(username)}`);
+                setUsernameAvailable(data.available);
+                setUsernameError(data.available ? '' : 'Username is already taken');
+                if (!data.available) {
+                    form.setFieldError('username', 'Username is already taken');
+                } else {
+                    form.clearFieldError('username');
+                }
+            } catch {
+                setUsernameAvailable(null);
+            } finally {
+                setCheckingUsername(false);
             }
         }, 500);
 
         return () => clearTimeout(timer);
+        // `form` is intentionally excluded: Mantine returns a new form object
+        // (and new setFieldError/clearFieldError) each render, and depending on
+        // it would reset this debounce on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.values.username]);
 
     const handleSubmit = async (values) => {

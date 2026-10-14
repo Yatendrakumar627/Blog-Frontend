@@ -1,15 +1,14 @@
-import { Group, Button, ScrollArea, Box, useComputedColorScheme, Indicator } from '@mantine/core';
+import { Group, Box, useComputedColorScheme, Indicator, UnstyledButton, Text } from '@mantine/core';
 import { Link, useLocation } from 'react-router-dom';
-import { IconHome, IconWriting, IconUser, IconMessage } from '@tabler/icons-react';
+import { IconHome, IconCompass, IconCirclePlus, IconMessageCircle, IconUser } from '@tabler/icons-react';
 import useAuthStore from '../store/authStore';
 import { useSocket } from '../contexts/SocketContext';
-import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 
 const PageNavigation = () => {
     const { user } = useAuthStore();
     const location = useLocation();
-    const { unreadCount, hasNewMessage, setHasNewMessage } = useSocket();
+    const { hasNewMessage, setHasNewMessage } = useSocket();
     const computedColorScheme = useComputedColorScheme('light', { getInitialValueInEffect: true });
     const isDark = computedColorScheme === 'dark';
 
@@ -22,110 +21,110 @@ const PageNavigation = () => {
     if (!user) return null;
 
     const links = [
-        { label: 'Explore', path: '/explore', icon: IconHome },
-        { label: 'Write', path: '/create-post', icon: IconWriting },
-        { label: 'Messages', path: '/chat', icon: IconMessage, isMessage: true },
-        { label: 'My Posts', path: '/post', icon: IconWriting },
+        { label: 'Home', path: '/public-feed', icon: IconHome },
+        { label: 'Explore', path: '/explore', icon: IconCompass },
+        { label: 'Create', path: '/create-post', icon: IconCirclePlus },
+        { label: 'Chat', path: '/chat', icon: IconMessageCircle, isMessage: true },
         { label: 'Profile', path: `/profile/${user.username}`, icon: IconUser },
     ];
 
     return (
         <Box
-            mt="md"
-            mb={0}
-            mx="auto"
-            maw={{ base: 'calc(100% - 32px)', md: 'fit-content' }}
-            px="md"
+            component="nav"
             style={{
-                position: 'sticky',
-                top: '70px',
-                zIndex: 1000,
-                borderRadius: '50px',
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 2000,
+                backgroundColor: isDark ? 'rgba(15, 14, 23, 0.96)' : 'rgba(255, 255, 255, 0.96)',
                 backdropFilter: 'blur(20px) saturate(180%)',
-                backgroundColor: isDark ? 'rgba(25, 25, 25, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.6)',
-                boxShadow: isDark
-                    ? '0 20px 40px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                    : '0 20px 40px -10px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
-                transition: 'all 0.3s ease',
+                borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)',
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                boxShadow: isDark ? '0 -10px 30px rgba(0, 0, 0, 0.5)' : '0 -10px 25px rgba(0, 0, 0, 0.05)',
+                transition: 'background-color 0.3s ease',
             }}
         >
-            <ScrollArea
-                type="scroll"
-                scrollbarSize={0}
+            <Group
+                justify="space-around"
+                align="center"
+                wrap="nowrap"
+                style={{
+                    maxWidth: '640px',
+                    margin: '0 auto',
+                    height: '58px',
+                    padding: '0 8px',
+                }}
             >
-                <Group gap={4} p={6} justify="center" miw="max-content" wrap="nowrap">
-                    {links.map((link) => {
-                        const isActive = location.pathname === link.path;
+                {links.map((link) => {
+                    const isActive = location.pathname === link.path || (link.path === '/public-feed' && location.pathname === '/');
 
-                        let IconComponent = <link.icon size={18} stroke={2.5} />;
+                    const activeColor = '#ec4899';
+                    const inactiveColor = isDark ? '#71717a' : '#8e8ea0';
+                    const currentColor = isActive ? activeColor : inactiveColor;
 
-                        // Only show red dot if there is TRULY new activity (hasNewMessage)
-                        // and we are NOT currently looking at the chat page
-                        if (link.isMessage && hasNewMessage && location.pathname !== '/chat') {
-                            IconComponent = (
-                                <Indicator
-                                    inline
-                                    size={10}
-                                    offset={1}
-                                    position="top-end"
-                                    color="red"
-                                    withBorder
-                                    processing
-                                >
-                                    <link.icon size={18} stroke={2.5} />
-                                </Indicator>
-                            );
-                        }
+                    let IconComponent = <link.icon size={22} stroke={isActive ? 2.2 : 1.7} color={currentColor} />;
 
-                        return (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                style={{ textDecoration: 'none', position: 'relative' }}
+                    if (link.isMessage && hasNewMessage && location.pathname !== '/chat') {
+                        IconComponent = (
+                            <Indicator
+                                inline
+                                size={8}
+                                offset={2}
+                                position="top-end"
+                                color="red"
+                                withBorder
+                                processing
                             >
-                                {isActive && (
-                                    <motion.div
-                                        layoutId="active-pill"
-                                        style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            borderRadius: '50px',
-                                            backgroundColor: 'var(--mantine-primary-color-filled)',
-                                            boxShadow: '0 0 20px -5px var(--mantine-primary-color-filled)',
-                                            zIndex: 0,
-                                        }}
-                                        transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
-                                    />
-                                )}
-                                <Button
-                                    variant="transparent"
-                                    size="sm"
-                                    radius="xl"
-                                    px="xl"
-                                    fw={700}
-                                    leftSection={IconComponent}
-                                    styles={{
-                                        root: {
-                                            height: '40px',
-                                            color: isActive ? 'var(--mantine-color-white)' : (isDark ? 'var(--mantine-color-gray-4)' : 'var(--mantine-color-gray-7)'),
-                                            backgroundColor: 'transparent',
-                                            position: 'relative',
-                                            zIndex: 1,
-                                            transition: 'all 0.2s ease',
-                                        },
-                                        inner: {
-                                            letterSpacing: '0.3px'
-                                        }
+                                {IconComponent}
+                            </Indicator>
+                        );
+                    }
+
+                    return (
+                        <Link
+                            key={link.path}
+                            to={link.path}
+                            style={{
+                                textDecoration: 'none',
+                                flex: 1,
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <UnstyledButton
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '3px',
+                                    width: '100%',
+                                    height: '100%',
+                                    cursor: 'pointer',
+                                    transition: 'transform 0.15s ease',
+                                }}
+                            >
+                                {IconComponent}
+                                <Text
+                                    size="11px"
+                                    fw={isActive ? 700 : 500}
+                                    style={{
+                                        color: currentColor,
+                                        letterSpacing: '0.2px',
+                                        lineHeight: 1,
+                                        transition: 'color 0.2s ease',
                                     }}
                                 >
                                     {link.label}
-                                </Button>
-                            </Link>
-                        );
-                    })}
-                </Group>
-            </ScrollArea>
+                                </Text>
+                            </UnstyledButton>
+                        </Link>
+                    );
+                })}
+            </Group>
         </Box>
     );
 };

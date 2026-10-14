@@ -133,10 +133,10 @@ function App() {
       <ErrorBoundary>
         <Router>
           <Navbar />
-          <PageNavigation />
-          <Container px="md" mt="md">
+          <Container px={{ base: 6, sm: 'md' }} mt={{ base: 'xs', sm: 'md' }} pb={80} size="md">
             <AnimatedRoutes />
           </Container>
+          <PageNavigation />
         </Router>
       </ErrorBoundary>
     </QueryClientProvider>

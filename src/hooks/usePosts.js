@@ -89,7 +89,7 @@ export const useUpdatePost = () => {
             });
             return data;
         },
-        onSuccess: (data) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['posts'] });
             notifications.show({ title: 'Success', message: 'Post updated successfully!', color: 'green' });
         },

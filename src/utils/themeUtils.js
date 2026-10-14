@@ -27,16 +27,6 @@ const adjustColor = (hex, amount) => {
 };
 
 export const generateThemeFromColor = (primaryColor) => {
-    const isLight = (hex) => {
-        const rgb = hexToRgb(hex);
-        if (!rgb) return true;
-        const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
-        return brightness > 128;
-    };
-
-    const lightColor = adjustColor(primaryColor, 180);
-    const darkColor = adjustColor(primaryColor, -180);
-
     return {
         name: 'Custom',
         light: `radial-gradient(circle at 0% 0%, ${adjustColor(primaryColor, 150)}66 0%, transparent 50%), 

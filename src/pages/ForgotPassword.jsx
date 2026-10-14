@@ -22,7 +22,7 @@ const ForgotPassword = () => {
         try {
             await api.post('/auth/forgot-password', { email: values.email });
             setSent(true);
-        } catch (error) {
+        } catch {
             // Always show success to not leak whether email exists
             setSent(true);
         } finally {

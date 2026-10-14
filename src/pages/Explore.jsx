@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Container, Tabs, TextInput, Center, Grid, Text, Title, Stack, ActionIcon, rem, Tooltip, Badge, Button, Group, Skeleton } from '@mantine/core';
+import { Container, Tabs, TextInput, Center, Grid, Text, Title, Stack, ActionIcon, Tooltip, Badge, Button, Group, Skeleton, Box } from '@mantine/core';
 import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import AppLoader from '../components/AppLoader';
 import { IconSearch, IconUser, IconArticle, IconX, IconCalendar, IconFilter, IconClock, IconCalendarEvent } from '@tabler/icons-react';
@@ -13,7 +13,6 @@ import UserCard from '../components/UserCard';
 import TrendingPosts from '../components/TrendingPosts';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { usePosts } from '../hooks/usePosts';
-import dayjs from 'dayjs';
 import './Explore.css';
 
 const Explore = () => {
@@ -21,16 +20,16 @@ const Explore = () => {
     const [search, setSearch] = useState(searchParams.get('search') || '');
     const [debouncedSearch] = useDebouncedValue(search, 300);
     const [dateRange, setDateRange] = useState([null, null]);
+    const [activePreset, setActivePreset] = useState('all');
     const [activeTab, setActiveTab] = useState('posts');
     const [users, setUsers] = useState([]);
     const [searching, setSearching] = useState(false);
     const [isFiltering, setIsFiltering] = useState(false);
     const dateInputRef = useRef(null);
     const isMobile = useMediaQuery('(max-width: 768px)');
-    const isTablet = useMediaQuery('(max-width: 1024px)');
 
     // Use infinite scroll for posts
-    const { data, isLoading, hasNextPage, fetchNextPage, isRefetching } = usePosts(
+    const { data, isLoading, hasNextPage, fetchNextPage } = usePosts(
         debouncedSearch || (dateRange && dateRange[0]) ? {
             search: debouncedSearch,
             startDate: dateRange && dateRange[0] ? new Date(dateRange[0]).toISOString() : undefined,
@@ -123,6 +122,7 @@ const Explore = () => {
         // Set end time to end of day
         end.setHours(23, 59, 59, 999);
         setDateRange([start, end]);
+        setActivePreset(preset);
     };
 
     // Keyboard shortcuts
@@ -136,6 +136,7 @@ const Explore = () => {
             // Escape to clear date filter
             if (e.key === 'Escape' && dateRange[0]) {
                 setDateRange([null, null]);
+                setActivePreset('all');
             }
         };
 
@@ -144,209 +145,158 @@ const Explore = () => {
     }, [dateRange]);
 
     return (
-        <>
-            <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                {/* Search and Filter Container - Single Line */}
-                <div style={{
-                    marginBottom: '16px',
-                    display: 'flex',
-                    gap: isMobile ? '8px' : '12px',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: 'center'
-                }}>
-                    {/* Search Bar - Takes most space */}
-                    <TextInput
-                        placeholder="Search posts, people, and more..."
-                        size="md"
-                        radius="xl"
-                        leftSection={<IconSearch size={18} stroke={1.5} />}
-                        rightSection={
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                {search && (
-                                    <ActionIcon
-                                        size="sm"
-                                        variant="transparent"
-                                        c="dimmed"
-                                        onClick={() => setSearch('')}
-                                    >
-                                        <IconX size={14} />
-                                    </ActionIcon>
-                                )}
-                            </div>
-                        }
-                        value={search}
-                        onChange={(event) => setSearch(event.currentTarget.value)}
-                        style={{ flex: 1 }}
-                        styles={{
-                            input: {
-                                backgroundColor: 'var(--mantine-color-body)',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                                border: '1px solid var(--mantine-color-default-border)',
-                                transition: 'all 0.2s ease',
-                                '&:focus': {
-                                    borderColor: 'var(--mantine-primary-color-filled)',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                }
-                            }
-                        }}
-                    />
+        <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+            {/* Unified Search Header */}
+            <Box mb="md">
+                <TextInput
+                    placeholder="Search posts, people, and topics..."
+                    size="md"
+                    radius="xl"
+                    className="explore-search-input"
+                    leftSection={<IconSearch size={18} stroke={1.5} />}
+                    rightSection={
+                        search ? (
+                            <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="gray"
+                                onClick={() => setSearch('')}
+                            >
+                                <IconX size={14} />
+                            </ActionIcon>
+                        ) : null
+                    }
+                    value={search}
+                    onChange={(event) => setSearch(event.currentTarget.value)}
+                />
+            </Box>
 
-                    {/* Date Filter - Compact on same line */}
-                    <Tooltip
-                        label={dateRange[0] && typeof dateRange[0] === 'object' ?
-                            (dateRange[0].toDateString() === dateRange[1]?.toDateString() ?
-                                `Filter by date: ${dateRange[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} (Press Ctrl+D to focus, Esc to clear)` :
-                                `Filter by date: ${dateRange[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} - ${dateRange[1]?.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} (Press Ctrl+D to focus, Esc to clear)`)
-                            : "Filter by date (Press Ctrl+D to focus)"}
-                        position={isMobile ? "top" : "bottom"}
-                        withArrow
-                        openDelay={500}
-                    >
-                        <DatePickerInput
-                            ref={dateInputRef}
-                            type="range"
-                            allowSingleDateInRange
-                            placeholder="Filter by date"
-                            valueFormat="DD MMMM YYYY"
-                            onChange={(val) => {
-                                if (val && val.length === 2) {
-                                    if (val[0] && val[1]) {
-                                        setDateRange([val[0], val[1]]);
-                                    } else if (val[0] && !val[1]) {
-                                        setDateRange([val[0], null]);
-                                    } else {
-                                        setDateRange([null, null]);
-                                    }
-                                } else {
-                                    setDateRange([null, null]);
-                                }
-                            }}
-                            clearable
-                            leftSection={<IconCalendar size={isMobile ? 16 : 14} />}
-                            maxDate={new Date()}
-                            dropdownType="modal"
-                            classNames={{
-                                input: 'datePickerInput',
-                                root: 'datePickerRoot',
-                                section: 'datePickerSection',
-                                inputWrapper: 'datePickerInputWrapper',
-                                dropdown: 'datePickerDropdown',
-                                calendar: 'datePickerCalendar',
-                                calendarHeader: 'datePickerCalendarHeader',
-                                calendarHeaderControl: 'datePickerCalendarHeaderControl',
-                                weekday: 'datePickerWeekday',
-                                day: 'datePickerDay',
-                                month: 'datePickerMonth',
-                                monthRow: 'datePickerMonthRow',
-                                yearsList: 'datePickerYearsList',
-                                monthPicker: 'datePickerMonthPicker',
-                                yearPicker: 'datePickerYearPicker'
-                            }}
-                            styles={{
-                                input: {
-                                    width: dateRange[0] ? (isMobile ? '100%' : '280px') : (isMobile ? '100%' : '200px'),
-                                    minWidth: isMobile ? '150px' : '200px',
-                                    maxWidth: isMobile ? '100%' : '280px',
-                                    height: isMobile ? '40px' : '40px',
-                                    fontSize: isMobile ? '14px' : '13px',
-                                },
-                                root: {
-                                    width: dateRange[0] ? (isMobile ? '100%' : 'auto') : (isMobile ? '100%' : 'auto'),
-                                },
-                                inputWrapper: {
-                                    width: dateRange[0] ? (isMobile ? '100%' : 'auto') : (isMobile ? '100%' : 'auto'),
-                                    backgroundColor: dateRange[0] ? 'var(--mantine-color-blue-light)' : 'transparent',
-                                },
-                                calendar: {
-                                    padding: isMobile ? '15px' : '20px'
-                                },
-                                calendarHeaderControl: {
-                                    width: isMobile ? '40px' : '32px',
-                                    height: isMobile ? '40px' : '32px',
-                                },
-                                weekday: {
-                                    fontSize: isMobile ? '14px' : '12px',
-                                },
-                                day: {
-                                    padding: isMobile ? '15px' : '20px'
-                                }
-                            }}
-                        />
-                    </Tooltip>
-                </div>
-
-                {/* Preset Date Buttons - Second Line */}
-                <div style={{
-                    marginBottom: '16px',
-                    display: 'flex',
-                    gap: isMobile ? '8px' : '12px',
-                    flexWrap: 'wrap',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: isMobile ? 'stretch' : 'center'
-                }}>
-                    <Group gap={isMobile ? 'xs' : 'sm'} style={{
-                        flex: isMobile ? 1 : 'auto',
-                        width: isMobile ? '100%' : 'auto',
-                        justifyContent: isMobile ? 'space-between' : 'flex-start'
-                    }}>
-                        <Button
-                            size={isMobile ? 'xs' : 'xs'}
-                            variant="subtle"
-                            leftSection={<IconClock size={isMobile ? 10 : 12} />}
-                            onClick={() => setPresetDateRange('today')}
-                            style={{
-                                fontSize: isMobile ? '10px' : '11px',
-                                height: '32px',
-                                padding: isMobile ? '0 12px' : '0 8px',
-                                minWidth: isMobile ? '80px' : 'auto',
-                                touchAction: 'manipulation'
-                            }}
-                        >
-                            Today
-                        </Button>
-                        <Button
-                            size={isMobile ? 'xs' : 'xs'}
-                            variant="subtle"
-                            leftSection={<IconCalendarEvent size={isMobile ? 10 : 12} />}
-                            onClick={() => setPresetDateRange('thisWeek')}
-                            style={{
-                                fontSize: isMobile ? '10px' : '11px',
-                                height: '32px',
-                                padding: isMobile ? '0 12px' : '0 8px',
-                                minWidth: isMobile ? '80px' : 'auto',
-                                touchAction: 'manipulation'
-                            }}
-                        >
-                            This Week
-                        </Button>
-                        <Button
-                            size={isMobile ? 'xs' : 'xs'}
-                            variant="subtle"
-                            leftSection={<IconCalendarEvent size={isMobile ? 10 : 12} />}
-                            onClick={() => setPresetDateRange('thisMonth')}
-                            style={{
-                                fontSize: isMobile ? '10px' : '11px',
-                                height: '32px',
-                                padding: isMobile ? '0 12px' : '0 8px',
-                                minWidth: isMobile ? '80px' : 'auto',
-                                touchAction: 'manipulation'
-                            }}
-                        >
-                            This Month
-                        </Button>
-                    </Group>
-                </div>
-            </div>
-
+            {/* Main Content Layout with Sticky Trending Sidebar */}
             <div style={{ display: 'flex', gap: '24px', flexDirection: 'row', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <Tabs value={activeTab} onChange={setActiveTab} variant="outline">
-                        <Tabs.List mb="sm">
+                    <Tabs
+                        value={activeTab}
+                        onChange={setActiveTab}
+                        className="explore-tabs"
+                    >
+                        <Tabs.List>
                             <Tabs.Tab value="posts" leftSection={<IconArticle size={16} />}>Posts</Tabs.Tab>
                             <Tabs.Tab value="people" leftSection={<IconUser size={16} />}>People</Tabs.Tab>
                         </Tabs.List>
 
                         <Tabs.Panel value="posts">
+                            {/* Contextual Date Filter Chips for Posts */}
+                            <Box mb="md">
+                                <Group gap={8} wrap="nowrap" style={{ overflowX: 'auto', paddingBottom: 4 }}>
+                                    <Button
+                                        size="xs"
+                                        radius="xl"
+                                        variant={activePreset === 'all' && !dateRange[0] ? 'filled' : 'default'}
+                                        color={activePreset === 'all' && !dateRange[0] ? 'blue' : 'gray'}
+                                        onClick={() => {
+                                            setDateRange([null, null]);
+                                            setActivePreset('all');
+                                        }}
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: '12px',
+                                            height: 30,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        All Time
+                                    </Button>
+
+                                    <Button
+                                        size="xs"
+                                        radius="xl"
+                                        variant={activePreset === 'today' ? 'filled' : 'default'}
+                                        color={activePreset === 'today' ? 'blue' : 'gray'}
+                                        leftSection={<IconClock size={12} />}
+                                        onClick={() => setPresetDateRange('today')}
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: '12px',
+                                            height: 30,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        Today
+                                    </Button>
+
+                                    <Button
+                                        size="xs"
+                                        radius="xl"
+                                        variant={activePreset === 'thisWeek' ? 'filled' : 'default'}
+                                        color={activePreset === 'thisWeek' ? 'blue' : 'gray'}
+                                        leftSection={<IconCalendarEvent size={12} />}
+                                        onClick={() => setPresetDateRange('thisWeek')}
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: '12px',
+                                            height: 30,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        This Week
+                                    </Button>
+
+                                    <Button
+                                        size="xs"
+                                        radius="xl"
+                                        variant={activePreset === 'thisMonth' ? 'filled' : 'default'}
+                                        color={activePreset === 'thisMonth' ? 'blue' : 'gray'}
+                                        leftSection={<IconCalendarEvent size={12} />}
+                                        onClick={() => setPresetDateRange('thisMonth')}
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: '12px',
+                                            height: 30,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        This Month
+                                    </Button>
+
+                                    <DatePickerInput
+                                        ref={dateInputRef}
+                                        type="range"
+                                        allowSingleDateInRange
+                                        placeholder="Custom date..."
+                                        value={dateRange}
+                                        valueFormat="DD MMM"
+                                        size="xs"
+                                        radius="xl"
+                                        clearable
+                                        leftSection={<IconCalendar size={13} />}
+                                        maxDate={new Date()}
+                                        dropdownType="modal"
+                                        onChange={(val) => {
+                                            if (val && val[0]) {
+                                                setDateRange([val[0], val[1] || null]);
+                                                setActivePreset('custom');
+                                            } else {
+                                                setDateRange([null, null]);
+                                                setActivePreset('all');
+                                            }
+                                        }}
+                                        styles={{
+                                            input: {
+                                                height: 30,
+                                                minHeight: 30,
+                                                fontSize: '12px',
+                                                fontWeight: 600,
+                                                width: dateRange[0] ? '180px' : '135px',
+                                                backgroundColor: dateRange[0] ? 'var(--mantine-color-blue-light)' : 'transparent',
+                                                borderColor: dateRange[0] ? 'var(--mantine-color-blue-filled)' : 'var(--mantine-color-default-border)',
+                                                color: dateRange[0] ? 'var(--mantine-color-blue-filled)' : 'inherit',
+                                                cursor: 'pointer',
+                                            }
+                                        }}
+                                    />
+                                </Group>
+                            </Box>
+
                             {isLoading && uniquePosts.length === 0 ? (
                                 <Stack gap="md">
                                     {isFiltering ? (
@@ -421,7 +371,7 @@ const Explore = () => {
                     </div>
                 )}
             </div>
-        </>
+        </div>
     );
 };
 

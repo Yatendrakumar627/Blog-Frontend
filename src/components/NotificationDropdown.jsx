@@ -1,6 +1,6 @@
 import { Menu, ActionIcon, Indicator, Text, Group, Avatar, ScrollArea, Stack, Badge, Button, Paper } from '@mantine/core';
 import { IconBell, IconCheck } from '@tabler/icons-react';
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -61,7 +61,7 @@ const NotificationDropdown = () => {
         return { text, link };
     };
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!user) return;
         try {
             const { data } = await api.get('/notifications');
@@ -71,12 +71,12 @@ const NotificationDropdown = () => {
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
         }
-    };
+    }, [user]);
 
     // Initial fetch on mount
     useEffect(() => {
         fetchNotifications();
-    }, [user]);
+    }, [fetchNotifications]);
 
     // Real-time notification listener
     useEffect(() => {

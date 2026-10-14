@@ -1,14 +1,15 @@
 import {
-    Container, Title, Paper, Center
+    Container, Title, Paper, Center, Box
 } from '@mantine/core';
 import api from '../api/axios';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import PostForm from '../components/PostForm';
 import { useCreatePost, useUpdatePost } from '../hooks/usePosts';
 
 const CreatePost = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams(); // Get post ID if editing
     const [fetching, setFetching] = useState(!!id); // Fetching state if editing
     const [initialData, setInitialData] = useState(null);
@@ -44,10 +45,17 @@ const CreatePost = () => {
             };
             fetchPost();
         } else {
+            if (location.state?.prompt) {
+                setInitialData({
+                    content: `<p><strong>${location.state.prompt}</strong></p><p></p>`,
+                    mood: 'Thoughtful',
+                    tags: 'DailyChallenge, DilKiBaat'
+                });
+            }
             // If not editing, ensure fetching is false immediately
             setFetching(false);
         }
-    }, [id, navigate]);
+    }, [id, navigate, location.state]);
 
     const handleSubmit = async (formData) => {
         // formData is already populated by PostForm
@@ -67,11 +75,7 @@ const CreatePost = () => {
     };
 
     return (
-        <Container fluid px={0} mt={{ base: 'xs', sm: 'xl' }}>
-            <Title order={2} mb="lg" ta="center" fw={900} variant="gradient" gradient={{ from: 'blue', to: 'cyan', deg: 90 }}>
-                {id ? 'Edit Post' : 'Share your Dil Ki Baat'}
-            </Title>
-
+        <Box w="100%" px={0} py={{ base: 4, sm: 'md' }}>
             <PostForm
                 initialData={initialData}
                 onSubmit={handleSubmit}
@@ -79,7 +83,7 @@ const CreatePost = () => {
                 loading={loading}
                 isLoading={fetching}
             />
-        </Container>
+        </Box>
     );
 };
 
