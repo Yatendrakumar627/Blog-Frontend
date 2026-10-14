@@ -1,18 +1,26 @@
 import { PasswordInput, Button, Paper, Title, Container, Text, Stack, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { IconLock, IconCheck, IconX } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
+import useAuthStore from '../store/authStore';
 
 const ResetPassword = () => {
+    const { user } = useAuthStore();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (user) {
+            navigate('/public-feed', { replace: true });
+        }
+    }, [user, navigate]);
 
     const form = useForm({
         initialValues: { password: '', confirmPassword: '' },

@@ -314,8 +314,26 @@ const BlogCard = memo(({ blog }) => {
             const toDataURL = async (url) => {
                 if (!url || url.startsWith('data:')) return url;
                 try {
-                    // Create an absolute URL for the proxy
+                    // Create an absolute URL
                     const absoluteUrl = new URL(url, window.location.origin).href;
+
+                    // If it is hosted on the same origin (local static assets), fetch directly
+                    if (absoluteUrl.startsWith(window.location.origin)) {
+                        try {
+                            const localRes = await fetch(absoluteUrl);
+                            if (localRes.ok) {
+                                const blob = await localRes.blob();
+                                return new Promise((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.readAsDataURL(blob);
+                                });
+                            }
+                        } catch {
+                            // Continue to proxy if local fetch fails
+                        }
+                    }
+
                     const fetchUrl = `${api.defaults.baseURL}/proxy?url=${encodeURIComponent(absoluteUrl)}`;
 
                     const response = await fetch(fetchUrl);
@@ -984,21 +1002,28 @@ const BlogCard = memo(({ blog }) => {
                                         borderRadius: '12px', 
                                         overflow: 'hidden',
                                         aspectRatio: '3/4',
-                                        minHeight: '180px'
+                                        minHeight: '180px',
+                                        background: displayBlog.backgroundImage 
+                                            ? 'transparent' 
+                                            : (isDark 
+                                                ? 'linear-gradient(135deg, rgba(32, 34, 46, 0.95), rgba(18, 19, 26, 0.98))' 
+                                                : 'linear-gradient(135deg, #fdfbf7, #f5efe6)')
                                     }}>
-                                        <img
-                                            src={displayBlog.backgroundImage || "/paper-bg.png"}
-                                            alt="Background"
-                                            style={{
-                                                position: 'absolute',
-                                                inset: 0,
-                                                width: '100%',
-                                                height: '100%',
-                                                display: 'block',
-                                                objectFit: 'cover',
-                                                objectPosition: 'center'
-                                            }}
-                                        />
+                                        {displayBlog.backgroundImage && (
+                                            <img
+                                                src={displayBlog.backgroundImage}
+                                                alt="Background"
+                                                style={{
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    display: 'block',
+                                                    objectFit: 'cover',
+                                                    objectPosition: 'center'
+                                                }}
+                                            />
+                                        )}
                                         <div
                                             style={{
                                                 position: 'relative',
@@ -1016,7 +1041,6 @@ const BlogCard = memo(({ blog }) => {
                                                 ...(displayBlog.displayMode === 'Poetry' ? {
                                                     fontFamily: "'Playfair Display', Georgia, serif",
                                                     textAlign: 'center',
-                                                    whiteSpace: 'pre-line',
                                                     lineHeight: 1.4,
                                                     fontSize: 'clamp(0.9rem, 3.2vw, 1.25rem)',
                                                     textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',
@@ -1024,7 +1048,6 @@ const BlogCard = memo(({ blog }) => {
                                                 } : {
                                                     fontFamily: "'Dancing Script', cursive",
                                                     textAlign: 'center',
-                                                    whiteSpace: 'pre-line',
                                                     lineHeight: 1.35,
                                                     fontSize: 'clamp(1.1rem, 3.8vw, 1.6rem)',
                                                     textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',

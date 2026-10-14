@@ -60,6 +60,13 @@ export const FONT_SIZES = [
 ];
 
 export const LINE_HEIGHT_OPTIONS = [
+    { label: '0.0 (Absolute Zero / Touching)', value: '0.0' },
+    { label: '0.2 (Deep Compressed / Overlap)', value: '0.2' },
+    { label: '0.4 (Deep Minimal / Near Zero)', value: '0.4' },
+    { label: '0.6 (Ultra Dense Verse)', value: '0.6' },
+    { label: '0.8 (Tight Rhythm)', value: '0.8' },
+    { label: '1.0 (Solid / Zero Extra Space)', value: '1.0' },
+    { label: '1.1 (Compact Rhythm)', value: '1.1' },
     { label: '1.2 (Couplets / Shayari)', value: '1.2' },
     { label: '1.4 (Compact Prose)', value: '1.4' },
     { label: '1.6 (Standard Reading)', value: '1.6' },

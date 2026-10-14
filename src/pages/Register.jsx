@@ -2,7 +2,7 @@ import { TextInput, PasswordInput, Button, Paper, Title, Container, Text, Stack,
 import AppLoader from '../components/AppLoader';
 import { useForm } from '@mantine/form';
 import useAuthStore from '../store/authStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { IconCheck, IconX, IconUser, IconMail, IconLock, IconSignature } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,8 +33,17 @@ const PasswordStrengthBar = ({ password }) => {
 };
 
 const Register = () => {
-    const { register, loading: authLoading } = useAuthStore();
+    const { user, register, loading: authLoading } = useAuthStore();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // If already logged in, redirect immediately to feed
+    useEffect(() => {
+        if (user) {
+            navigate('/public-feed', { replace: true });
+        }
+    }, [user, navigate]);
+
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [usernameAvailable, setUsernameAvailable] = useState(null);
     const [usernameError, setUsernameError] = useState('');
@@ -105,7 +114,7 @@ const Register = () => {
             }
 
             await register(values.username, values.email, values.password, values.displayName);
-            navigate('/');
+            navigate('/public-feed', { replace: true });
         } catch (error) {
             const errorMessage = error.message || 'Registration failed';
             if (errorMessage.toLowerCase().includes('username')) {

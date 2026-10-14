@@ -18,84 +18,90 @@ export const useSocket = () => {
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [hasNewMessage, setHasNewMessage] = useState(false); // New state for "new activity" indicator
+  const [hasNewMessage, setHasNewMessage] = useState(false);
   const { user } = useAuthStore();
+  const socketRef = React.useRef(null);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
     try {
       const { data } = await api.get('/chat/unread-count');
       setUnreadCount(data.count);
-      // We don't set hasNewMessage to true here because these are "old" unread messages
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
   }, [user]);
 
   useEffect(() => {
-    if (user) {
-      const getSocketUrl = () => {
-        let url = import.meta.env.VITE_API_URL;
-        if (!url) {
-          url = import.meta.env.PROD
-            ? 'https://blog-backend-1-5enc.onrender.com'
-            : 'http://localhost:5100';
-        }
-        return url.replace(/\/$/, '').replace('/api', '');
-      };
+    const userId = user?._id;
+    if (!userId) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setSocket(null);
+      }
+      return;
+    }
 
+    const getSocketUrl = () => {
+      let url = import.meta.env.VITE_API_URL;
+      if (!url) {
+        url = import.meta.env.PROD
+          ? 'https://blog-backend-1-5enc.onrender.com'
+          : 'http://localhost:5100';
+      }
+      return url.replace(/\/$/, '').replace('/api', '');
+    };
+
+    if (!socketRef.current) {
       const socketUrl = getSocketUrl();
-
       const newSocket = io(socketUrl, {
         withCredentials: true,
-        autoConnect: false,
+        autoConnect: true,
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
-      newSocket.on('connect', () => {
-        newSocket.emit('join', user._id);
-        fetchUnreadCount();
-      });
-
-      newSocket.on('new_message', (message) => {
-        // Only show notification and set indicator if NOT on the chat page
-        if (window.location.pathname !== '/chat') {
-          notifications.show({
-            title: `Message from ${message.sender?.displayName || message.sender?.username}`,
-            message: message.text,
-            icon: <IconMessage size={16} />,
-            color: 'pink',
-            onClick: () => window.location.href = '/chat'
-          });
-          setUnreadCount(prev => prev + 1);
-          setHasNewMessage(true); // Flag that a TRULY new message arrived
-        }
-      });
-
-      newSocket.on('disconnect', () => {
-      });
-
+      socketRef.current = newSocket;
       setSocket(newSocket);
-
-      // Delay connection slightly to avoid React Strict Mode immediate mount/unmount cycle
-      // which causes the "WebSocket is closed before the connection is established" warning.
-      const connectTimer = setTimeout(() => {
-        newSocket.connect();
-      }, 50);
-
-      return () => {
-        clearTimeout(connectTimer);
-        newSocket.off('new_message');
-        newSocket.disconnect();
-      };
-    } else {
-      setSocket((current) => {
-        if (current) {
-          current.disconnect();
-        }
-        return null;
-      });
     }
-  }, [user, fetchUnreadCount]);
+
+    const activeSocket = socketRef.current;
+
+    const handleConnect = () => {
+      activeSocket.emit('join', userId);
+      fetchUnreadCount();
+    };
+
+    const handleNewMessage = (message) => {
+      if (window.location.pathname !== '/chat') {
+        notifications.show({
+          title: `Message from ${message.sender?.displayName || message.sender?.username}`,
+          message: message.text,
+          icon: <IconMessage size={16} />,
+          color: 'pink',
+          onClick: () => window.location.href = '/chat'
+        });
+        setUnreadCount(prev => prev + 1);
+        setHasNewMessage(true);
+      }
+    };
+
+    if (activeSocket.connected) {
+      handleConnect();
+    } else {
+      activeSocket.on('connect', handleConnect);
+    }
+
+    activeSocket.on('new_message', handleNewMessage);
+
+    return () => {
+      activeSocket.off('connect', handleConnect);
+      activeSocket.off('new_message', handleNewMessage);
+    };
+  }, [user?._id, fetchUnreadCount]);
 
   return (
     <SocketContext.Provider value={{ 

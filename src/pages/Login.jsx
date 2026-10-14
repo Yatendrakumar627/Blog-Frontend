@@ -1,15 +1,24 @@
 import { TextInput, PasswordInput, Button, Paper, Title, Container, Text, Anchor, Stack, Alert, Box, LoadingOverlay } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import useAuthStore from '../store/authStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { IconInfoCircle, IconMail, IconLock } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {
-    const { login, loading: authLoading } = useAuthStore();
+    const { user, login, loading: authLoading } = useAuthStore();
     const navigate = useNavigate();
+    const location = useLocation();
     const [emailExists, setEmailExists] = useState(true);
+
+    // If already logged in, immediately redirect to feed or intended page
+    useEffect(() => {
+        if (user) {
+            const destination = location.state?.from?.pathname || '/public-feed';
+            navigate(destination, { replace: true });
+        }
+    }, [user, navigate, location]);
 
     const form = useForm({
         initialValues: { email: '', password: '' },
@@ -26,7 +35,8 @@ const Login = () => {
     const handleSubmit = async (values) => {
         try {
             await login(values.email, values.password);
-            navigate('/');
+            const destination = location.state?.from?.pathname || '/public-feed';
+            navigate(destination, { replace: true });
         } catch (error) {
             const errorMessage = error.message || 'Login failed';
             if (errorMessage === 'create the account') {

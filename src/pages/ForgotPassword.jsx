@@ -1,14 +1,23 @@
 import { TextInput, Button, Paper, Title, Container, Text, Stack, Anchor, Box, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { IconMail, IconInfoCircle, IconCheck } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
+import useAuthStore from '../store/authStore';
 
 const ForgotPassword = () => {
+    const { user } = useAuthStore();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            navigate('/public-feed', { replace: true });
+        }
+    }, [user, navigate]);
 
     const form = useForm({
         initialValues: { email: '' },

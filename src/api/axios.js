@@ -38,6 +38,7 @@ api.interceptors.response.use(
             // Only auto-logout if user HAD a token (expired session), not on login/register failures
             if (token && !error.config.url?.includes('/auth/login') && !error.config.url?.includes('/auth/register')) {
                 localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 window.location.href = '/login';
             }
         }

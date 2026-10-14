@@ -1,24 +1,21 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import { Center, Loader } from '@mantine/core';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuthStore();
+  const location = useLocation();
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
-      }}>
-        Loading...
-      </div>
+      <Center style={{ height: '60vh' }}>
+        <Loader color="pink" type="bars" />
+      </Center>
     );
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

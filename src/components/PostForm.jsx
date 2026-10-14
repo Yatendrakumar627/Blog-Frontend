@@ -8,7 +8,8 @@ import { useForm } from '@mantine/form';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     X, Upload, Link as LinkIcon, Sparkles, Mic, MicOff,
-    Maximize, Minimize, Eye, Edit3, Share2, Compass, Check
+    Maximize, Minimize, Eye, Edit3, Share2, Compass, Check,
+    Plus, Minus
 } from 'lucide-react';
 import { RichTextEditor } from '@mantine/tiptap';
 import Underline from '@tiptap/extension-underline';
@@ -27,7 +28,7 @@ import {
     IconAlignRight, IconAlignJustified, IconTextIncrease, IconTextDecrease,
     IconSpacingVertical, IconArrowBarToDown, IconArrowBarToUp, IconCheck,
     IconPalette, IconHeartHandshake, IconDownload, IconVolume, IconTypography,
-    IconChevronDown
+    IconChevronDown, IconChevronUp, IconBold, IconItalic, IconUnderline, IconLink
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notifications } from '@mantine/notifications';
@@ -99,7 +100,7 @@ const LineHeight = Extension.create({
     addOptions() {
         return {
             types: ['paragraph', 'heading'],
-            defaultLineHeight: '1.2',
+            defaultLineHeight: null,
         };
     },
     addGlobalAttributes() {
@@ -108,10 +109,10 @@ const LineHeight = Extension.create({
                 types: this.options.types,
                 attributes: {
                     lineHeight: {
-                        default: this.options.defaultLineHeight,
-                        parseHTML: element => element.style.lineHeight || this.options.defaultLineHeight,
+                        default: null,
+                        parseHTML: element => element.style.lineHeight || null,
                         renderHTML: attributes => {
-                            if (!attributes.lineHeight) return {};
+                            if (attributes.lineHeight === null || attributes.lineHeight === undefined || attributes.lineHeight === '') return {};
                             return { style: `line-height: ${attributes.lineHeight}` };
                         },
                     },
@@ -149,7 +150,7 @@ const ParagraphSpacing = Extension.create({
                         default: null,
                         parseHTML: element => element.style.marginTop || null,
                         renderHTML: attributes => {
-                            if (!attributes.marginTop) return {};
+                            if (attributes.marginTop === null || attributes.marginTop === undefined || attributes.marginTop === '') return {};
                             return { style: `margin-top: ${attributes.marginTop}` };
                         },
                     },
@@ -157,7 +158,7 @@ const ParagraphSpacing = Extension.create({
                         default: null,
                         parseHTML: element => element.style.marginBottom || null,
                         renderHTML: attributes => {
-                            if (!attributes.marginBottom) return {};
+                            if (attributes.marginBottom === null || attributes.marginBottom === undefined || attributes.marginBottom === '') return {};
                             return { style: `margin-bottom: ${attributes.marginBottom}` };
                         },
                     },
@@ -175,6 +176,11 @@ const ParagraphSpacing = Extension.create({
             setMarginBottom: (marginBottom) => ({ commands }) => {
                 return this.options.types
                     .map(type => commands.updateAttributes(type, { marginBottom }))
+                    .some(result => result);
+            },
+            setParagraphSpacing: ({ marginTop, marginBottom }) => ({ commands }) => {
+                return this.options.types
+                    .map(type => commands.updateAttributes(type, { marginTop, marginBottom }))
                     .some(result => result);
             },
         };
@@ -319,7 +325,15 @@ const PostForm = ({
         { label: '2.0 (Double)', value: '2.0' },
     ], []);
 
-    const currentLineHeight = editor?.getAttributes('paragraph').lineHeight || '1.2';
+    const currentLineHeight = editor?.getAttributes('paragraph').lineHeight || editor?.getAttributes('heading').lineHeight || '1.2';
+    const currentFontSize = editor?.getAttributes('textStyle').fontSize || '18px';
+    const currentAlignment = editor?.isActive({ textAlign: 'center' })
+        ? 'center'
+        : editor?.isActive({ textAlign: 'right' })
+            ? 'right'
+            : editor?.isActive({ textAlign: 'justify' })
+                ? 'justify'
+                : 'left';
 
     // Current Mood Details
     const currentMoodObj = useMemo(() => {
@@ -337,8 +351,62 @@ const PostForm = ({
     }, [form.values.content, editor]);
 
     // Spacing handlers
-    const handleLineSpacingChange = useCallback((value) => {
-        editor?.chain().focus(undefined, { scrollIntoView: false }).setLineHeight(value).run();
+    const handleLineSpacingChange = useCallback((value, applyToAll = false, autoCollapseMargin = true) => {
+        if (!editor) return;
+        const num = parseFloat(value);
+        const collapseMargin = autoCollapseMargin && num <= 1.0;
+
+        if (applyToAll) {
+            const { from, to } = editor.state.selection;
+            const chain = editor.chain().focus(undefined, { scrollIntoView: false }).selectAll().setLineHeight(value);
+            if (collapseMargin) {
+                chain.setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' });
+            }
+            chain.setTextSelection({ from, to }).run();
+        } else {
+            const chain = editor.chain().focus(undefined, { scrollIntoView: false }).setLineHeight(value);
+            if (collapseMargin) {
+                chain.setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' });
+            }
+            chain.run();
+        }
+    }, [editor]);
+
+    const handleStepLineSpacing = useCallback((delta) => {
+        if (!editor) return;
+        const curr = editor.getAttributes('paragraph').lineHeight || editor.getAttributes('heading').lineHeight || '1.2';
+        const num = parseFloat(curr) || 1.2;
+        // Allows deeper stepping down to 0.0 with 0.05 precision
+        const next = Math.max(0.0, Math.min(3.0, Math.round((num + delta) * 100) / 100)).toFixed(2);
+        handleLineSpacingChange(next, false, true);
+    }, [editor, handleLineSpacingChange]);
+
+    const handleDeepZeroSpacing = useCallback((applyToAll = true) => {
+        if (!editor) return;
+        if (applyToAll) {
+            const { from, to } = editor.state.selection;
+            editor.chain().focus(undefined, { scrollIntoView: false })
+                .selectAll()
+                .setLineHeight('0.0')
+                .setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' })
+                .setTextSelection({ from, to })
+                .run();
+        } else {
+            editor.chain().focus(undefined, { scrollIntoView: false })
+                .setLineHeight('0.0')
+                .setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' })
+                .run();
+        }
+    }, [editor]);
+
+    const handleApplySpacingToAll = useCallback((lineHeight) => {
+        if (!editor) return;
+        const { from, to } = editor.state.selection;
+        editor.chain().focus(undefined, { scrollIntoView: false })
+            .selectAll()
+            .setLineHeight(lineHeight)
+            .setTextSelection({ from, to })
+            .run();
     }, [editor]);
 
     const handleMarginTopChange = useCallback((value) => {
@@ -347,6 +415,22 @@ const PostForm = ({
 
     const handleMarginBottomChange = useCallback((value) => {
         editor?.chain().focus(undefined, { scrollIntoView: false }).setMarginBottom(value).run();
+    }, [editor]);
+
+    const handleZeroStanzaSpacing = useCallback((applyToAll = false) => {
+        if (!editor) return;
+        if (applyToAll) {
+            const { from, to } = editor.state.selection;
+            editor.chain().focus(undefined, { scrollIntoView: false })
+                .selectAll()
+                .setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' })
+                .setTextSelection({ from, to })
+                .run();
+        } else {
+            editor.chain().focus(undefined, { scrollIntoView: false })
+                .setParagraphSpacing({ marginTop: '0px', marginBottom: '0px' })
+                .run();
+        }
     }, [editor]);
 
     const handleResetSpacing = useCallback(() => {
@@ -547,9 +631,7 @@ const PostForm = ({
         form.setFieldValue('displayMode', val);
         if (val === 'Shayari' || val === 'Poetry') {
             editor?.chain().focus().setTextAlign('center').run();
-            if (!form.values.backgroundImageUrl) {
-                form.setFieldValue('backgroundImageUrl', '/paper-bg.png');
-            }
+            // Background is left blank by default; user can select a preset or upload if they wish
         } else {
             editor?.chain().focus().setTextAlign('left').run();
         }
@@ -664,12 +746,12 @@ const PostForm = ({
                 >
                     <Stack gap={{ base: 'sm', sm: 'lg' }}>
                         {/* 2026 Creative Studio Top Navigation Bar */}
-                        <Group justify="space-between" align="center" wrap="wrap" gap={{ base: 6, sm: 'sm' }}>
-                            <Group gap="xs">
+                        <Group justify="space-between" align="center" wrap="wrap" gap={{ base: 8, sm: 'md' }}>
+                            <Group gap="xs" align="center">
                                 <Title
                                     order={3}
                                     fw={900}
-                                    fz={{ base: '1.2rem', sm: '1.45rem' }}
+                                    fz={{ base: '1.15rem', sm: '1.4rem' }}
                                     style={{
                                         background: 'linear-gradient(45deg, #339af0, #e64980)',
                                         WebkitBackgroundClip: 'text',
@@ -681,20 +763,21 @@ const PostForm = ({
                                 </Title>
 
                                 {hasDraft && !initialData && (
-                                    <Button
+                                    <Badge
                                         variant="light"
                                         color="orange"
-                                        size="compact-xs"
+                                        size="sm"
                                         radius="xl"
+                                        style={{ cursor: 'pointer', textTransform: 'none', fontWeight: 600 }}
                                         onClick={loadDraft}
                                     >
                                         Restore Draft
-                                    </Button>
+                                    </Badge>
                                 )}
                             </Group>
 
-                            {/* View Switcher & Action Tools */}
-                            <Group gap={8}>
+                            {/* Studio Action Tools Bar */}
+                            <Group gap={6} align="center" wrap="nowrap">
                                 <SegmentedControl
                                     size="xs"
                                     radius="xl"
@@ -703,7 +786,7 @@ const PostForm = ({
                                     data={[
                                         {
                                             label: (
-                                                <Group gap={5} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                                                <Group gap={4} wrap="nowrap" align="center">
                                                     <Edit3 size={13} />
                                                     <span>Canvas</span>
                                                 </Group>
@@ -712,7 +795,7 @@ const PostForm = ({
                                         },
                                         {
                                             label: (
-                                                <Group gap={5} wrap="nowrap" align="center" style={{ whiteSpace: 'nowrap' }}>
+                                                <Group gap={4} wrap="nowrap" align="center">
                                                     <Eye size={13} />
                                                     <span>Preview</span>
                                                 </Group>
@@ -725,8 +808,8 @@ const PostForm = ({
                                         root: {
                                             backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
                                             border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
-                                            padding: '3px',
-                                            height: '32px'
+                                            padding: '2px',
+                                            height: '30px'
                                         },
                                         indicator: {
                                             background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
@@ -735,61 +818,75 @@ const PostForm = ({
                                         },
                                         label: {
                                             fontWeight: 600,
-                                            fontSize: '12px',
-                                            padding: '2px 10px',
+                                            fontSize: '11px',
+                                            padding: '2px 8px',
                                             color: isDark ? '#9ca3af' : '#71717a',
                                             transition: 'color 0.15s ease',
                                         }
                                     }}
                                 />
 
-                                {/* Voice Dictation Button */}
-                                <Tooltip label={isListening ? "Listening... click to stop" : "Speak your Dil Ki Baat (Audio Dictation)"} position="bottom" withArrow>
-                                    <ActionIcon
-                                        variant={isListening ? "filled" : "light"}
-                                        color={isListening ? "red" : "pink"}
-                                        size="md"
-                                        radius="xl"
-                                        onClick={toggleSpeechRecognition}
-                                        style={{
-                                            boxShadow: isListening ? '0 0 14px rgba(250, 82, 82, 0.6)' : 'none'
-                                        }}
-                                    >
-                                        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                                    </ActionIcon>
-                                </Tooltip>
+                                {/* Grouped Action Icons */}
+                                <Group
+                                    gap={2}
+                                    p={2}
+                                    style={{
+                                        borderRadius: '24px',
+                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)',
+                                        border: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.05)',
+                                        height: '30px'
+                                    }}
+                                    align="center"
+                                    wrap="nowrap"
+                                >
+                                    {/* Voice Dictation Button */}
+                                    <Tooltip label={isListening ? "Listening... click to stop" : "Audio Dictation"} position="bottom" withArrow>
+                                        <ActionIcon
+                                            variant={isListening ? "filled" : "subtle"}
+                                            color={isListening ? "red" : "pink"}
+                                            size="sm"
+                                            radius="xl"
+                                            onClick={toggleSpeechRecognition}
+                                            style={{
+                                                boxShadow: isListening ? '0 0 14px rgba(250, 82, 82, 0.6)' : 'none'
+                                            }}
+                                        >
+                                            {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                                        </ActionIcon>
+                                    </Tooltip>
 
-                                {/* Export Social Story Card */}
-                                <Tooltip label="Export Aesthetic Story/Quote Card (Instagram/WhatsApp)" position="bottom" withArrow>
-                                    <ActionIcon
-                                        variant="light"
-                                        color="violet"
-                                        size="md"
-                                        radius="xl"
-                                        onClick={() => setQuoteCardModalOpen(true)}
-                                    >
-                                        <Share2 size={16} />
-                                    </ActionIcon>
-                                </Tooltip>
+                                    {/* Export Social Story Card */}
+                                    <Tooltip label="Export Aesthetic Quote Card" position="bottom" withArrow>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            color="violet"
+                                            size="sm"
+                                            radius="xl"
+                                            onClick={() => setQuoteCardModalOpen(true)}
+                                        >
+                                            <Share2 size={14} />
+                                        </ActionIcon>
+                                    </Tooltip>
 
-                                {/* Zen / Focus Mode Toggle */}
-                                <Tooltip label={zenMode ? "Exit Zen Mode" : "Distraction-Free Zen Mode"} position="bottom" withArrow>
-                                    <ActionIcon
-                                        variant={zenMode ? "filled" : "light"}
-                                        color="blue"
-                                        size="md"
-                                        radius="xl"
-                                        onClick={() => setZenMode(z => !z)}
-                                    >
-                                        {zenMode ? <Minimize size={16} /> : <Maximize size={16} />}
-                                    </ActionIcon>
-                                </Tooltip>
+                                    {/* Zen / Focus Mode Toggle */}
+                                    <Tooltip label={zenMode ? "Exit Zen Mode" : "Distraction-Free Zen Mode"} position="bottom" withArrow>
+                                        <ActionIcon
+                                            variant={zenMode ? "filled" : "subtle"}
+                                            color="blue"
+                                            size="sm"
+                                            radius="xl"
+                                            onClick={() => setZenMode(z => !z)}
+                                        >
+                                            {zenMode ? <Minimize size={14} /> : <Maximize size={14} />}
+                                        </ActionIcon>
+                                    </Tooltip>
+                                </Group>
                             </Group>
                         </Group>
 
-                        {/* Live Reading Metrics Bar */}
-                        <Group justify="space-between" align="center" px={4}>
-                            <Group gap="xs">
+                        {/* Live Reading Metrics & Status Ribbon */}
+                        <Group justify="space-between" align="center" px={4} py={2}>
+                            <Group gap="xs" align="center">
                                 <Badge variant="dot" color={currentMoodObj.color} size="sm">
                                     Vibe: {currentMoodObj.label}
                                 </Badge>
@@ -798,12 +895,20 @@ const PostForm = ({
                                 </Text>
                             </Group>
 
-                            {lastSaved && (
-                                <Text size="11px" c="dimmed" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#20c997' }} />
-                                    Autosaved {lastSaved}
+                            <Group gap="sm" align="center">
+                                {lastSaved && (
+                                    <Text size="11px" c="dimmed" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#20c997' }} />
+                                        Autosaved {lastSaved}
+                                    </Text>
+                                )}
+                                <Text size="10px" c="dimmed" visibleFrom="xs" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Sparkles size={11} color={currentMoodObj.hex} />
+                                    <span>Type</span>
+                                    <code style={{ padding: '0px 4px', borderRadius: '3px', background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}>/</code>
+                                    <span>for styles</span>
                                 </Text>
-                            )}
+                            </Group>
                         </Group>
 
                         {/* STUDIO TAB: CANVAS VIEW */}
@@ -856,73 +961,33 @@ const PostForm = ({
                                         />
                                     )}
 
-                                    {/* Studio Canvas Control Header & Quick Typography Suite */}
-                                    <Box style={{ position: 'relative', zIndex: 1, borderBottom: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.07)', backgroundColor: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)' }}>
-                                        {/* Top Mini Bar: Slash Hint, Texture Status, Pro Tools Toggle */}
-                                        <Group justify="space-between" px={{ base: 8, sm: 'md' }} py={{ base: 4, sm: 6 }}>
-                                            <Text size="11px" c="dimmed" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Sparkles size={12} color={currentMoodObj.hex} />
-                                                Type <code style={{ padding: '1px 5px', borderRadius: '4px', background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>/</code> for styles • Highlight to format
-                                            </Text>
-
-                                            <Group gap="xs">
-                                                {bgPreviewUrl && (
-                                                    <Tooltip label={canvasTextureEnabled ? "Hide background texture on canvas while typing" : "Show background texture on canvas while typing"} withArrow>
-                                                        <UnstyledButton
-                                                            onClick={() => setCanvasTextureEnabled(c => !c)}
-                                                            style={{
-                                                                fontSize: '11px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px',
-                                                                color: canvasTextureEnabled ? 'var(--mantine-color-pink-5)' : 'var(--mantine-color-dimmed)',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            <IconPhoto size={12} />
-                                                            {canvasTextureEnabled ? 'Canvas Texture: On' : 'Canvas Texture: Off'}
-                                                        </UnstyledButton>
-                                                    </Tooltip>
-                                                )}
-
-                                                <Button
-                                                    size="compact-xs"
-                                                    variant="subtle"
-                                                    color="gray"
-                                                    radius="md"
-                                                    onClick={() => setShowToolbar(s => !s)}
-                                                    style={{ fontSize: '11px', fontWeight: 500 }}
-                                                >
-                                                    {showToolbar ? 'Hide Tools' : 'Show Tools'}
-                                                </Button>
-                                            </Group>
-                                        </Group>
-                                    </Box>
-
                                     <RichTextEditor editor={editor} variant="subtle" style={{ position: 'relative', zIndex: 1 }}>
-                                        {/* Unified Collapsible Studio Toolbar */}
+                                        {/* Pro Studio Unified Toolbar */}
                                         <Collapse in={showToolbar}>
                                             <RichTextEditor.Toolbar
                                                 style={{
-                                                    backgroundColor: isDark ? 'rgba(15, 17, 23, 0.85)' : 'rgba(248, 249, 250, 0.95)',
-                                                    backdropFilter: 'blur(12px)',
-                                                    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
-                                                    padding: '6px 12px',
+                                                    backgroundColor: isDark ? 'rgba(16, 18, 25, 0.94)' : 'rgba(250, 251, 252, 0.96)',
+                                                    backdropFilter: 'blur(16px)',
+                                                    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.07)',
+                                                    padding: '4px 6px',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    gap: '8px',
-                                                    flexWrap: 'wrap'
+                                                    justifyContent: 'flex-start',
+                                                    gap: '6px',
+                                                    overflowX: 'auto',
+                                                    scrollbarWidth: 'none',
+                                                    flexWrap: 'nowrap',
+                                                    width: '100%',
+                                                    boxSizing: 'border-box'
                                                 }}
                                             >
-                                                {/* Left Tools: Typeface Menu & Inline Formatting */}
-                                                <Group gap="xs" wrap="wrap" align="center">
-                                                    {/* Font Type Menu with Integrated Quick Presets & Curated List */}
-                                                    <Menu shadow="xl" width={290} withinPortal position="bottom-start">
-                                                        <Menu.Target>
+                                                {/* 1. Font Type Menu */}
+                                                <Menu shadow="xl" width={290} withinPortal position="bottom-start">
+                                                    <Menu.Target>
+                                                        <Tooltip label="Font Type" withArrow>
                                                             <Button
                                                                 size="compact-xs"
-                                                                variant="light"
+                                                                variant="subtle"
                                                                 color="violet"
                                                                 radius="md"
                                                                 leftSection={<IconTypography size={13} />}
@@ -931,184 +996,445 @@ const PostForm = ({
                                                                     fontFamily: editor?.getAttributes('textStyle').fontFamily ? `${editor.getAttributes('textStyle').fontFamily}, serif` : 'inherit',
                                                                     fontSize: '11px',
                                                                     fontWeight: 600,
-                                                                    height: '28px'
+                                                                    height: '28px',
+                                                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                                    whiteSpace: 'nowrap',
+                                                                    padding: '0 8px',
+                                                                    flexShrink: 0
                                                                 }}
                                                             >
-                                                                {editor?.getAttributes('textStyle').fontFamily || 'Font Type...'}
+                                                                {editor?.getAttributes('textStyle').fontFamily || 'Font Type'}
                                                             </Button>
-                                                        </Menu.Target>
-                                                        <Menu.Dropdown
-                                                            p={8}
-                                                            style={{
-                                                                backgroundColor: isDark ? 'rgba(20, 20, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
-                                                                backdropFilter: 'blur(16px)',
-                                                                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.1)'
-                                                            }}
-                                                        >
-                                                            <Menu.Label>Quick Presets</Menu.Label>
-                                                            <SimpleGrid cols={2} spacing={5} mb="xs" px={2}>
-                                                                {QUICK_FONT_PRESETS.map((preset) => {
-                                                                    const isActive = editor?.getAttributes('textStyle').fontFamily === preset.font;
-                                                                    return (
-                                                                        <Button
-                                                                            key={preset.id}
-                                                                            size="compact-xs"
-                                                                            variant={isActive ? 'filled' : 'light'}
-                                                                            color={isActive ? 'pink' : 'gray'}
-                                                                            radius="md"
-                                                                            justify="flex-start"
-                                                                            px={8}
-                                                                            style={{
-                                                                                fontSize: '11px',
-                                                                                fontFamily: `${preset.font}, serif`,
-                                                                                height: '28px'
-                                                                            }}
-                                                                            onClick={() => {
-                                                                                editor?.chain().focus().setFontFamily(preset.font).run();
-                                                                                notifications.show({
-                                                                                    title: `${preset.label} Font Applied`,
-                                                                                    message: `Set canvas typeface to ${preset.font}`,
-                                                                                    color: 'pink',
-                                                                                    autoClose: 1400
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            {preset.icon} {preset.label}
-                                                                        </Button>
-                                                                    );
-                                                                })}
-                                                            </SimpleGrid>
-
-                                                            <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
-                                                            <Menu.Label>Curated Expressive Typefaces</Menu.Label>
-                                                            <ScrollArea.Autosize mah={220}>
-                                                                {FONT_FAMILIES.map((group) => (
-                                                                    <Box key={group.category} mb={4}>
-                                                                        <Text size="10px" fw={700} c="dimmed" px="xs" py={2} tt="uppercase">
-                                                                            {group.category}
-                                                                        </Text>
-                                                                        {group.fonts.map((f) => (
-                                                                            <Menu.Item
-                                                                                key={f.value}
-                                                                                onClick={() => {
-                                                                                    if (f.value) {
-                                                                                        editor?.chain().focus().setFontFamily(f.value).run();
-                                                                                    } else {
-                                                                                        editor?.chain().focus().unsetFontFamily().run();
-                                                                                    }
-                                                                                }}
-                                                                                rightSection={editor?.getAttributes('textStyle').fontFamily === f.value ? <IconCheck size={12} color="#4dabf7" /> : null}
-                                                                                style={{ padding: '4px 8px', borderRadius: '6px' }}
-                                                                            >
-                                                                                <Text size="xs" style={{ fontFamily: `${f.value}, serif` }}>
-                                                                                    {f.label}
-                                                                                </Text>
-                                                                                <Text size="10px" c="dimmed">{f.desc}</Text>
-                                                                            </Menu.Item>
-                                                                        ))}
-                                                                    </Box>
-                                                                ))}
-                                                            </ScrollArea.Autosize>
-                                                            <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
-                                                            <Menu.Item
-                                                                color="red"
-                                                                onClick={() => editor?.chain().focus().unsetFontFamily().run()}
-                                                                style={{ fontSize: '11px' }}
-                                                            >
-                                                                Reset to Default Font
-                                                            </Menu.Item>
-                                                        </Menu.Dropdown>
-                                                    </Menu>
-
-                                                    <RichTextEditor.ControlsGroup>
-                                                        <RichTextEditor.Bold />
-                                                        <RichTextEditor.Italic />
-                                                        <RichTextEditor.Underline />
-                                                        <RichTextEditor.Link />
-                                                    </RichTextEditor.ControlsGroup>
-                                                </Group>
-
-                                                {/* Right Tools: Font Size Stepper, Alignment (Once!), Rhythmic Spacing (Once!) */}
-                                                <Group gap="xs" wrap="wrap" align="center">
-                                                    {/* Font Size Stepper */}
-                                                    <Group gap={2} p={2} style={{ borderRadius: '16px', background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', height: '28px' }} align="center">
-                                                        <Tooltip label="Decrease font size" withArrow>
-                                                            <ActionIcon
-                                                                size="xs"
-                                                                variant="subtle"
-                                                                color="gray"
-                                                                onClick={() => {
-                                                                    const curr = editor?.getAttributes('textStyle').fontSize;
-                                                                    let size = curr ? parseInt(curr.replace('px', '')) : 18;
-                                                                    if (size > 12) editor?.chain().focus().setMark('textStyle', { fontSize: `${size - 2}px` }).run();
-                                                                }}
-                                                            >
-                                                                <IconTextDecrease size={12} />
-                                                            </ActionIcon>
                                                         </Tooltip>
-                                                        <Badge size="xs" variant="transparent" color="gray" px={4} style={{ fontSize: '10px' }}>
-                                                            {editor?.getAttributes('textStyle').fontSize || '18px'}
-                                                        </Badge>
-                                                        <Tooltip label="Increase font size" withArrow>
-                                                            <ActionIcon
-                                                                size="xs"
-                                                                variant="subtle"
-                                                                color="gray"
-                                                                onClick={() => {
-                                                                    const curr = editor?.getAttributes('textStyle').fontSize;
-                                                                    let size = curr ? parseInt(curr.replace('px', '')) : 18;
-                                                                    if (size < 48) editor?.chain().focus().setMark('textStyle', { fontSize: `${size + 2}px` }).run();
-                                                                }}
-                                                            >
-                                                                <IconTextIncrease size={12} />
-                                                            </ActionIcon>
-                                                        </Tooltip>
-                                                    </Group>
-
-                                                    {/* Alignment Group - Exactly Once */}
-                                                    <RichTextEditor.ControlsGroup>
-                                                        <RichTextEditor.AlignLeft />
-                                                        <RichTextEditor.AlignCenter />
-                                                        <RichTextEditor.AlignRight />
-                                                        <RichTextEditor.AlignJustify />
-                                                    </RichTextEditor.ControlsGroup>
-
-                                                    {/* Rhythmic Line-Height & Stanza Breathing Room - Exactly Once */}
-                                                    <RichTextEditor.ControlsGroup>
-                                                        <Menu shadow="md" width={220} withinPortal position="bottom-end">
-                                                            <Menu.Target>
-                                                                <RichTextEditor.Control title="Line & Stanza Spacing">
-                                                                    <IconSpacingVertical size={14} />
-                                                                </RichTextEditor.Control>
-                                                            </Menu.Target>
-                                                            <Menu.Dropdown>
-                                                                <Menu.Label>Rhythmic Line Spacing</Menu.Label>
-                                                                {LINE_HEIGHT_OPTIONS.map((item) => (
-                                                                    <Menu.Item
-                                                                        key={item.value}
-                                                                        onClick={() => handleLineSpacingChange(item.value)}
-                                                                        rightSection={currentLineHeight === item.value ? <IconCheck size={12} /> : null}
+                                                    </Menu.Target>
+                                                    <Menu.Dropdown
+                                                        p={8}
+                                                        style={{
+                                                            backgroundColor: isDark ? 'rgba(20, 20, 26, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+                                                            backdropFilter: 'blur(16px)',
+                                                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.1)'
+                                                        }}
+                                                    >
+                                                        <Menu.Label>Quick Presets</Menu.Label>
+                                                        <SimpleGrid cols={2} spacing={5} mb="xs" px={2}>
+                                                            {QUICK_FONT_PRESETS.map((preset) => {
+                                                                const isActive = editor?.getAttributes('textStyle').fontFamily === preset.font;
+                                                                return (
+                                                                    <Button
+                                                                        key={preset.id}
+                                                                        size="compact-xs"
+                                                                        variant={isActive ? 'filled' : 'light'}
+                                                                        color={isActive ? 'pink' : 'gray'}
+                                                                        radius="md"
+                                                                        justify="flex-start"
+                                                                        px={8}
+                                                                        style={{
+                                                                            fontSize: '11px',
+                                                                            fontFamily: `${preset.font}, serif`,
+                                                                            height: '28px'
+                                                                        }}
+                                                                        onClick={() => {
+                                                                            editor?.chain().focus().setFontFamily(preset.font).run();
+                                                                            notifications.show({
+                                                                                title: `${preset.label} Font Applied`,
+                                                                                message: `Set canvas typeface to ${preset.font}`,
+                                                                                color: 'pink',
+                                                                                autoClose: 1400
+                                                                            });
+                                                                        }}
                                                                     >
-                                                                        {item.label}
-                                                                    </Menu.Item>
-                                                                ))}
-                                                                <Divider my="5px" />
-                                                                <Menu.Label>Stanza Breathing Room</Menu.Label>
-                                                                <Menu.Item leftSection={<IconArrowBarToDown size={12} />} onClick={() => handleMarginTopChange('12px')}>
-                                                                    Space Before Stanza
+                                                                        {preset.icon} {preset.label}
+                                                                    </Button>
+                                                                );
+                                                            })}
+                                                        </SimpleGrid>
+
+                                                        <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
+                                                        <Menu.Label>Curated Expressive Typefaces</Menu.Label>
+                                                        <ScrollArea.Autosize mah={220}>
+                                                            {FONT_FAMILIES.map((group) => (
+                                                                <Box key={group.category} mb={4}>
+                                                                    <Text size="10px" fw={700} c="dimmed" px="xs" py={2} tt="uppercase">
+                                                                        {group.category}
+                                                                    </Text>
+                                                                    {group.fonts.map((f) => (
+                                                                        <Menu.Item
+                                                                            key={f.value}
+                                                                            onClick={() => {
+                                                                                if (f.value) {
+                                                                                    editor?.chain().focus().setFontFamily(f.value).run();
+                                                                                } else {
+                                                                                    editor?.chain().focus().unsetFontFamily().run();
+                                                                                }
+                                                                            }}
+                                                                            rightSection={editor?.getAttributes('textStyle').fontFamily === f.value ? <IconCheck size={12} color="#4dabf7" /> : null}
+                                                                            style={{ padding: '4px 8px', borderRadius: '6px' }}
+                                                                        >
+                                                                            <Text size="xs" style={{ fontFamily: `${f.value}, serif` }}>
+                                                                                {f.label}
+                                                                            </Text>
+                                                                            <Text size="10px" c="dimmed">{f.desc}</Text>
+                                                                        </Menu.Item>
+                                                                    ))}
+                                                                </Box>
+                                                            ))}
+                                                        </ScrollArea.Autosize>
+                                                        <Divider my={4} color={isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'} />
+                                                        <Menu.Item
+                                                            color="red"
+                                                            onClick={() => editor?.chain().focus().unsetFontFamily().run()}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            Reset to Default Font
+                                                        </Menu.Item>
+                                                    </Menu.Dropdown>
+                                                </Menu>
+
+                                                {/* 2. Font Size Menu Button */}
+                                                <Menu shadow="md" width={110} withinPortal position="bottom-start">
+                                                    <Menu.Target>
+                                                        <Tooltip label="Font Size" withArrow>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                radius="md"
+                                                                rightSection={<IconChevronDown size={10} />}
+                                                                style={{
+                                                                    height: '28px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 600,
+                                                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                                    padding: '0 8px',
+                                                                    fontVariantNumeric: 'tabular-nums',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            >
+                                                                {currentFontSize}
+                                                            </Button>
+                                                        </Tooltip>
+                                                    </Menu.Target>
+                                                    <Menu.Dropdown>
+                                                        <Menu.Label>Font Size</Menu.Label>
+                                                        {['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px', '42px'].map((sz) => {
+                                                            const isSelected = currentFontSize === sz;
+                                                            return (
+                                                                <Menu.Item
+                                                                    key={sz}
+                                                                    onClick={() => editor?.chain().focus().setMark('textStyle', { fontSize: sz }).run()}
+                                                                    rightSection={isSelected ? <IconCheck size={12} color="#339af0" /> : null}
+                                                                    style={{ fontSize: '11px', fontWeight: isSelected ? 600 : 400, padding: '4px 8px' }}
+                                                                >
+                                                                    {sz} {sz === '18px' ? '(Default)' : ''}
                                                                 </Menu.Item>
-                                                                <Menu.Item leftSection={<IconArrowBarToUp size={12} />} onClick={() => handleMarginBottomChange('16px')}>
-                                                                    Space After Stanza
+                                                            );
+                                                        })}
+                                                    </Menu.Dropdown>
+                                                </Menu>
+
+                                                <Divider orientation="vertical" h={16} color={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} />
+
+                                                {/* 3. Format Style Menu - Dedicated Single Button */}
+                                                <Menu shadow="md" width={160} withinPortal position="bottom-start">
+                                                    <Menu.Target>
+                                                        <Tooltip label="Text Formatting (B, I, U, Link)" withArrow>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant={(editor?.isActive('bold') || editor?.isActive('italic') || editor?.isActive('underline') || editor?.isActive('link')) ? 'light' : 'subtle'}
+                                                                color={(editor?.isActive('bold') || editor?.isActive('italic') || editor?.isActive('underline') || editor?.isActive('link')) ? 'violet' : 'gray'}
+                                                                radius="md"
+                                                                leftSection={
+                                                                    <Group gap={3} wrap="nowrap" align="center">
+                                                                        <IconBold size={13} />
+                                                                        <IconItalic size={13} />
+                                                                    </Group>
+                                                                }
+                                                                rightSection={<IconChevronDown size={10} />}
+                                                                style={{
+                                                                    height: '28px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 600,
+                                                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                                    padding: '0 8px',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                    </Menu.Target>
+                                                    <Menu.Dropdown>
+                                                        <Menu.Label>Formatting Styles</Menu.Label>
+                                                        <Menu.Item
+                                                            leftSection={<IconBold size={14} />}
+                                                            onClick={() => editor?.chain().focus().toggleBold().run()}
+                                                            rightSection={editor?.isActive('bold') ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px', fontWeight: editor?.isActive('bold') ? 700 : 400 }}
+                                                        >
+                                                            Bold
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            leftSection={<IconItalic size={14} />}
+                                                            onClick={() => editor?.chain().focus().toggleItalic().run()}
+                                                            rightSection={editor?.isActive('italic') ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px', fontStyle: 'italic' }}
+                                                        >
+                                                            Italic
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            leftSection={<IconUnderline size={14} />}
+                                                            onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                                                            rightSection={editor?.isActive('underline') ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px', textDecoration: 'underline' }}
+                                                        >
+                                                            Underline
+                                                        </Menu.Item>
+                                                        <Divider my={4} />
+                                                        <Menu.Item
+                                                            leftSection={<IconLink size={14} />}
+                                                            onClick={() => {
+                                                                const previousUrl = editor?.getAttributes('link').href;
+                                                                const url = window.prompt('URL', previousUrl);
+                                                                if (url === null) return;
+                                                                if (url === '') {
+                                                                    editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+                                                                    return;
+                                                                }
+                                                                editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+                                                            }}
+                                                            rightSection={editor?.isActive('link') ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            {editor?.isActive('link') ? 'Edit Link' : 'Add Link'}
+                                                        </Menu.Item>
+                                                    </Menu.Dropdown>
+                                                </Menu>
+
+                                                <Divider orientation="vertical" h={16} color={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} />
+
+                                                {/* 4. Text Alignment - Button in Option */}
+                                                <Menu shadow="md" width={140} withinPortal position="bottom-start">
+                                                    <Menu.Target>
+                                                        <Tooltip label={`Alignment: ${currentAlignment}`} withArrow>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                radius="md"
+                                                                leftSection={
+                                                                    currentAlignment === 'center' ? (
+                                                                        <IconAlignCenter size={14} />
+                                                                    ) : currentAlignment === 'right' ? (
+                                                                        <IconAlignRight size={14} />
+                                                                    ) : currentAlignment === 'justify' ? (
+                                                                        <IconAlignJustified size={14} />
+                                                                    ) : (
+                                                                        <IconAlignLeft size={14} />
+                                                                    )
+                                                                }
+                                                                rightSection={<IconChevronDown size={10} />}
+                                                                style={{
+                                                                    height: '28px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 600,
+                                                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                                    padding: '0 8px',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                    </Menu.Target>
+                                                    <Menu.Dropdown>
+                                                        <Menu.Label>Alignment</Menu.Label>
+                                                        <Menu.Item
+                                                            leftSection={<IconAlignLeft size={14} />}
+                                                            onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+                                                            rightSection={currentAlignment === 'left' ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            Align Left
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            leftSection={<IconAlignCenter size={14} />}
+                                                            onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+                                                            rightSection={currentAlignment === 'center' ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            Align Center
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            leftSection={<IconAlignRight size={14} />}
+                                                            onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+                                                            rightSection={currentAlignment === 'right' ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            Align Right
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                            leftSection={<IconAlignJustified size={14} />}
+                                                            onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
+                                                            rightSection={currentAlignment === 'justify' ? <IconCheck size={12} color="#339af0" /> : null}
+                                                            style={{ fontSize: '11px' }}
+                                                        >
+                                                            Justify
+                                                        </Menu.Item>
+                                                    </Menu.Dropdown>
+                                                </Menu>
+
+                                                <Divider orientation="vertical" h={16} color={isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} />
+
+                                                {/* 5. Line Spacing - Stays on Button */}
+                                                <Menu shadow="md" width={210} withinPortal position="bottom-start">
+                                                    <Menu.Target>
+                                                        <Tooltip label={`Line Spacing: ${parseFloat(currentLineHeight).toFixed(1)}x`} withArrow>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant="subtle"
+                                                                color="blue"
+                                                                radius="md"
+                                                                leftSection={<IconSpacingVertical size={13} />}
+                                                                rightSection={<IconChevronDown size={10} />}
+                                                                style={{
+                                                                    height: '28px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 600,
+                                                                    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                                                                    padding: '0 8px',
+                                                                    whiteSpace: 'nowrap',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            >
+                                                                {parseFloat(currentLineHeight).toFixed(1)}x
+                                                            </Button>
+                                                        </Tooltip>
+                                                    </Menu.Target>
+                                                    <Menu.Dropdown>
+                                                        <Menu.Label>Line Spacing</Menu.Label>
+                                                        {[
+                                                            { label: '⚡ 0.0 (True Zero Spacing)', value: '0.0' },
+                                                            { label: '0.4 (Deep Minimal)', value: '0.4' },
+                                                            { label: '0.8 (Compact)', value: '0.8' },
+                                                            { label: '1.0 (Tight / Solid)', value: '1.0' },
+                                                            { label: '1.2 (Standard)', value: '1.2' },
+                                                            { label: '1.5 (Relaxed)', value: '1.5' },
+                                                            { label: '1.8 (Open)', value: '1.8' },
+                                                            { label: '2.0 (Double)', value: '2.0' },
+                                                        ].map((item) => {
+                                                            const isSelected = Math.abs(parseFloat(currentLineHeight) - parseFloat(item.value)) < 0.05;
+                                                            return (
+                                                                <Menu.Item
+                                                                    key={item.value}
+                                                                    onClick={() => handleLineSpacingChange(item.value, false, true)}
+                                                                    rightSection={isSelected ? <IconCheck size={12} color="#339af0" /> : null}
+                                                                    style={{ fontSize: '11px', fontWeight: isSelected ? 600 : 400, padding: '5px 8px' }}
+                                                                >
+                                                                    {item.label}
                                                                 </Menu.Item>
-                                                                <Menu.Item onClick={handleResetSpacing} color="red">
-                                                                    Reset Spacing
-                                                                </Menu.Item>
-                                                            </Menu.Dropdown>
-                                                        </Menu>
-                                                    </RichTextEditor.ControlsGroup>
+                                                            );
+                                                        })}
+                                                        <Divider my={4} />
+                                                        <Group justify="space-between" px={8} py={3}>
+                                                            <Tooltip label="Deeper (-0.05)" withArrow>
+                                                                <Button
+                                                                    size="compact-xs"
+                                                                    variant="light"
+                                                                    color="red"
+                                                                    leftSection={<Minus size={11} />}
+                                                                    style={{ fontSize: '10px', height: '22px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleStepLineSpacing(-0.05); }}
+                                                                    disabled={parseFloat(currentLineHeight) <= 0.0}
+                                                                >
+                                                                    -0.05
+                                                                </Button>
+                                                            </Tooltip>
+                                                            <Tooltip label="Expand (+0.05)" withArrow>
+                                                                <Button
+                                                                    size="compact-xs"
+                                                                    variant="light"
+                                                                    color="blue"
+                                                                    rightSection={<Plus size={11} />}
+                                                                    style={{ fontSize: '10px', height: '22px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleStepLineSpacing(0.05); }}
+                                                                    disabled={parseFloat(currentLineHeight) >= 3.0}
+                                                                >
+                                                                    +0.05
+                                                                </Button>
+                                                            </Tooltip>
+                                                            <Button
+                                                                size="compact-xs"
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                style={{ fontSize: '10px', height: '22px' }}
+                                                                onClick={(e) => { e.stopPropagation(); handleApplySpacingToAll(currentLineHeight); }}
+                             >
+                                                                Apply All
+                                                            </Button>
+                                                        </Group>
+                                                        <Divider my={4} />
+                                                        <Menu.Item onClick={handleResetSpacing} color="gray" style={{ fontSize: '11px' }}>
+                                                            Reset Spacing to Default
+                                                        </Menu.Item>
+                                                    </Menu.Dropdown>
+                                                </Menu>
+
+                                                {/* 6. End Utilities (Texture Toggle & Hide Tools) */}
+                                                <Group gap={4} align="center" wrap="nowrap" style={{ flexShrink: 0 }}>
+                                                    {bgPreviewUrl && (
+                                                        <Tooltip label={canvasTextureEnabled ? "Hide background texture on canvas" : "Show background texture on canvas"} withArrow>
+                                                            <ActionIcon
+                                                                size="sm"
+                                                                radius="md"
+                                                                variant={canvasTextureEnabled ? 'light' : 'subtle'}
+                                                                color={canvasTextureEnabled ? 'pink' : 'gray'}
+                                                                onClick={() => setCanvasTextureEnabled(c => !c)}
+                                                                style={{ height: '28px', width: '28px' }}
+                                                            >
+                                                                <IconPhoto size={14} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    )}
+
+                                                    <Tooltip label="Hide Formatting Toolbar" withArrow>
+                                                        <ActionIcon
+                                                            size="sm"
+                                                            radius="md"
+                                                            variant="subtle"
+                                                            color="gray"
+                                                            onClick={() => setShowToolbar(false)}
+                                                            style={{ height: '28px', width: '28px' }}
+                                                        >
+                                                            <IconChevronUp size={14} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
                                                 </Group>
                                             </RichTextEditor.Toolbar>
                                         </Collapse>
+                                        {/* Subtle Floating Expand Button when toolbar is hidden */}
+                                        {!showToolbar && (
+                                            <Box pos="absolute" top={6} right={6} style={{ zIndex: 10 }}>
+                                                <Tooltip label="Show formatting toolbar" withArrow position="left">
+                                                    <ActionIcon
+                                                        size="sm"
+                                                        radius="md"
+                                                        variant="light"
+                                                        color="blue"
+                                                        onClick={() => setShowToolbar(true)}
+                                                        style={{
+                                                            backgroundColor: isDark ? 'rgba(25, 27, 36, 0.85)' : 'rgba(255, 255, 255, 0.9)',
+                                                            backdropFilter: 'blur(8px)',
+                                                            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
+                                                            height: '26px',
+                                                            width: '26px'
+                                                        }}
+                                                    >
+                                                        <IconChevronDown size={14} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Box>
+                                        )}
 
                                         {/* Main Prose Canvas */}
                                         <RichTextEditor.Content />
@@ -1284,7 +1610,11 @@ const PostForm = ({
                                                     checked={isChecked}
                                                     onChange={() => {
                                                         form.setFieldValue('backgroundImage', null);
-                                                        form.setFieldValue('backgroundImageUrl', bg.value);
+                                                        if (isChecked) {
+                                                            form.setFieldValue('backgroundImageUrl', '');
+                                                        } else {
+                                                            form.setFieldValue('backgroundImageUrl', bg.value);
+                                                        }
                                                     }}
                                                 >
                                                     {bg.label}

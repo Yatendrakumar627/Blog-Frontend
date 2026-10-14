@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import PageNavigation from './components/PageNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicOnlyRoute from './components/PublicOnlyRoute';
 import useAuthStore from './store/authStore';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -46,15 +47,37 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<Navigate to="/public-feed" replace />} />
         <Route path="/public-feed" element={
           <PageTransition>
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
+            <Home />
           </PageTransition>
         } />
-        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
-        <Route path="/register" element={<PageTransition><Register /></PageTransition>} />
-        <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
-        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
+        <Route path="/login" element={
+          <PageTransition>
+            <PublicOnlyRoute>
+              <Login />
+            </PublicOnlyRoute>
+          </PageTransition>
+        } />
+        <Route path="/register" element={
+          <PageTransition>
+            <PublicOnlyRoute>
+              <Register />
+            </PublicOnlyRoute>
+          </PageTransition>
+        } />
+        <Route path="/forgot-password" element={
+          <PageTransition>
+            <PublicOnlyRoute>
+              <ForgotPassword />
+            </PublicOnlyRoute>
+          </PageTransition>
+        } />
+        <Route path="/reset-password" element={
+          <PageTransition>
+            <PublicOnlyRoute>
+              <ResetPassword />
+            </PublicOnlyRoute>
+          </PageTransition>
+        } />
         <Route path="/post" element={
           <PageTransition>
             <ProtectedRoute>
@@ -92,9 +115,7 @@ const AnimatedRoutes = () => {
         } />
         <Route path="/profile/:username" element={
           <PageTransition>
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
+            <Profile />
           </PageTransition>
         } />
         <Route path="/post/:id" element={

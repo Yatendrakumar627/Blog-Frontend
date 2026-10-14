@@ -53,17 +53,33 @@
 
 /* Handle line breaks and spacing properly */
 .blog-content-display br {
-    line-height: 1.2;
+    display: block;
+    content: "";
+    margin-top: 0.5em;
 }
 
 .blog-content-display p,
 .blog-content-display .editor-paragraph,
 .blog-content-display .ProseMirror p {
+    margin-top: 0;
     margin-bottom: 0.6em;
     line-height: inherit;
     font-family: inherit;
     font-size: inherit;
     text-align: inherit;
+}
+
+/* Crucial: Preserve empty paragraph spacing created in TipTap/editor */
+.blog-content-display p:empty,
+.blog-content-display p > br:only-child,
+.blog-content-display .editor-paragraph:empty {
+    min-height: 1.2em;
+    display: block;
+}
+
+.blog-content-display p:empty::before {
+    content: "\00a0"; /* Non-breaking space so browser renders the empty paragraph line */
+    display: inline-block;
 }
 
 .blog-content-display p:last-child,
