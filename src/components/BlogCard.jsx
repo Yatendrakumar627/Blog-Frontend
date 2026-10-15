@@ -278,37 +278,58 @@ const BlogCard = memo(({ blog }) => {
             // Create a wrapper for the premium download look
             const isTextOnly = displayBlog.displayMode !== 'Poetry' && displayBlog.displayMode !== 'Shayari';
 
-            // Create a wrapper for the premium download look
+            // Create a wrapper for the premium 9:16 Story download look (1080x1920 output)
             const wrapper = document.createElement('div');
             wrapper.style.position = 'fixed';
             wrapper.style.left = '-9999px';
             wrapper.style.top = '0';
-            wrapper.style.width = '480px'; // Slimmer width matches reference
-            wrapper.style.minHeight = isTextOnly ? '405px' : '675px'; // 4:3 for text, 4:5 for poetry
-            wrapper.style.height = 'auto'; // Allow expansion
-            wrapper.style.padding = '20px';
-            wrapper.style.paddingBottom = '25px';
-            wrapper.style.boxSizing = 'border-box'; // Ensure padding is included in width
+            wrapper.style.width = '540px';
+            wrapper.style.height = '960px'; // 9:16 Story size (540x960 * 2 = 1080x1920)
+            wrapper.style.padding = '42px 32px 34px 32px';
+            wrapper.style.boxSizing = 'border-box';
             wrapper.style.display = 'flex';
             wrapper.style.flexDirection = 'column';
             wrapper.style.alignItems = 'center';
-            wrapper.style.justifyContent = 'flex-start'; // Start from top to prevent clipping long content
-            wrapper.style.fontFamily = "'Inter', sans-serif"; // Enforce font
+            wrapper.style.justifyContent = 'space-between';
+            wrapper.style.overflow = 'hidden';
+            wrapper.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-            // Premium Gradient Background
+            // Premium Atmospheric Gradient Background
             const isDarkMode = document.documentElement.classList.contains('dark') ||
                 window.getComputedStyle(document.documentElement).getPropertyValue('color-scheme') === 'dark';
 
             if (isDarkMode) {
-                // Simple solid dark background
-                wrapper.style.background = '#15151a';
+                // Nocturnal ambient canvas with soft rose crown aura and deep midnight gradient
+                wrapper.style.background = 'radial-gradient(ellipse 90% 45% at 50% 0%, rgba(255, 51, 102, 0.15) 0%, rgba(15, 16, 22, 0) 70%), linear-gradient(180deg, #121319 0%, #07080b 100%)';
             } else {
-                // Simple solid light background
-                wrapper.style.background = '#f4f4f8';
+                // Luminous editorial pearl canvas with soft warm blush aura
+                wrapper.style.background = 'radial-gradient(ellipse 90% 45% at 50% 0%, rgba(255, 51, 102, 0.08) 0%, rgba(246, 248, 252, 0) 70%), linear-gradient(180deg, #ffffff 0%, #edf1f7 100%)';
             }
 
             // Clone the card
             const cardClone = cardElement.cloneNode(true);
+
+            // Isolate the core content to eliminate any phantom headers, tags, action bars, or Mantine margins
+            const contentDiv = cardClone.querySelector('.blog-post-content');
+            if (contentDiv) {
+                if (!isTextOnly) {
+                    // For Poetry / Shayari, the artwork is strictly contentDiv
+                    cardClone.replaceChildren(contentDiv);
+                    contentDiv.style.margin = '0';
+                    contentDiv.style.padding = '0';
+                    contentDiv.style.width = '100%';
+                    contentDiv.style.height = '100%';
+                    contentDiv.style.display = 'flex';
+                    contentDiv.style.flexDirection = 'column';
+                    contentDiv.style.flex = '1 1 auto';
+                } else {
+                    // For text posts, keep contentDiv and media image if attached
+                    const mediaDiv = cardClone.querySelector('img[alt="Post image"]')?.parentElement;
+                    cardClone.replaceChildren(...[contentDiv, mediaDiv].filter(Boolean));
+                    contentDiv.style.margin = '0';
+                    contentDiv.style.width = '100%';
+                }
+            }
 
             // Helper: Convert an image URL to a base64 data URL via the server proxy
             const toDataURL = async (url) => {
@@ -369,9 +390,15 @@ const BlogCard = memo(({ blog }) => {
                     const div = document.createElement('div');
                     div.style.cssText = imgElem.style.cssText;
                     div.style.backgroundImage = `url("${srcUrl}")`;
-                    div.style.backgroundSize = imgElem.style.objectFit || 'cover';
-                    div.style.backgroundPosition = imgElem.style.objectPosition || 'center';
+                    div.style.backgroundSize = 'cover';
+                    div.style.backgroundPosition = 'center';
                     div.style.backgroundRepeat = 'no-repeat';
+                    div.style.position = 'absolute';
+                    div.style.top = '0';
+                    div.style.left = '0';
+                    div.style.width = '100%';
+                    div.style.height = '100%';
+                    div.style.borderRadius = 'inherit';
                     div.style.objectFit = '';
                     div.style.objectPosition = '';
                     if (imgElem.className) div.className = imgElem.className;
@@ -409,45 +436,79 @@ const BlogCard = memo(({ blog }) => {
                 })
             );
 
-            // Fix vw units for Poetry/Shayari natively for 540px
+            // Fix typography and vertical layout for Poetry/Shayari in 9:16 Story format
+            const hasBgImage = Boolean(displayBlog.backgroundImage);
             if (!isTextOnly) {
-                const contentDiv = cardClone.querySelector('.blog-post-content');
                 if (contentDiv) {
+                    // Fill the vertical story card seamlessly
+                    const aspectBox = contentDiv.firstElementChild || contentDiv;
+                    aspectBox.style.borderRadius = '24px';
+                    aspectBox.style.overflow = 'hidden';
+                    aspectBox.style.width = '100%';
+                    aspectBox.style.height = '100%';
+                    aspectBox.style.flex = '1 1 auto';
+                    aspectBox.style.aspectRatio = 'auto'; // Remove 3/4 restriction to fill 9:16 story card
+                    aspectBox.style.boxShadow = 'none';
+                    aspectBox.style.margin = '0';
+
                     const innerFlex = Array.from(contentDiv.querySelectorAll('div')).find(el => String(el.style.zIndex) === '1' && String(el.style.display) === 'flex');
                     if (innerFlex) {
-                        innerFlex.style.padding = '30px';
+                        innerFlex.style.padding = '44px 32px';
+                        innerFlex.style.borderRadius = '24px';
+                        innerFlex.style.position = 'relative';
+                        innerFlex.style.width = '100%';
+                        innerFlex.style.height = '100%';
+                        innerFlex.style.display = 'flex';
+                        innerFlex.style.flexDirection = 'column';
+                        innerFlex.style.alignItems = 'center';
+                        innerFlex.style.justifyContent = 'center';
+                        innerFlex.style.boxSizing = 'border-box';
+                        
+                        // If post has background image, ALWAYS preserve rich photo depth with dark cinematic scrim
+                        if (hasBgImage) {
+                            innerFlex.style.background = 'linear-gradient(180deg, rgba(8, 9, 13, 0.45) 0%, rgba(8, 9, 13, 0.70) 45%, rgba(8, 9, 13, 0.88) 100%)';
+                        } else {
+                            innerFlex.style.background = isDarkMode 
+                                ? 'linear-gradient(135deg, rgba(32, 34, 46, 0.95), rgba(18, 19, 26, 0.98))' 
+                                : 'linear-gradient(135deg, #fdfbf7, #f5efe6)';
+                        }
                     }
 
                     const quotes = Array.from(contentDiv.querySelectorAll('div')).filter(el => String(el.style.pointerEvents) === 'none');
                     quotes.forEach(quote => {
                         if (quote.textContent.includes('"')) {
-                            quote.style.fontSize = '80px';
-                            if (quote.style.top) quote.style.top = '10px';
-                            if (quote.style.bottom) quote.style.bottom = '10px';
-                            if (quote.style.left) quote.style.left = '10px';
-                            if (quote.style.right) quote.style.right = '10px';
+                            quote.style.fontSize = '95px';
+                            quote.style.fontFamily = "'Playfair Display', Georgia, serif";
+                            quote.style.color = hasBgImage || isDarkMode ? 'rgba(255, 255, 255, 0.13)' : 'rgba(0, 0, 0, 0.08)';
+                            quote.style.lineHeight = '1';
+                            if (quote.style.top) {
+                                quote.style.top = '18px';
+                                quote.style.left = '22px';
+                            }
+                            if (quote.style.bottom) {
+                                quote.style.bottom = '18px';
+                                quote.style.right = '22px';
+                            }
                         }
                     });
                     
                     const contentDisplay = contentDiv.querySelector('.blog-content-display');
                     const origContentDisplay = cardElement.querySelector('.blog-content-display');
                     if (contentDisplay && origContentDisplay) {
-                        // Use the computed base font size from the actual web view to maintain proportion
                         const computedStyles = window.getComputedStyle(origContentDisplay);
-                        
-                        // We apply a slight scale factor (1.2) because the download canvas wrapper is 480px 
-                        // which is usually wider than the mobile/desktop web view column.
                         const currentSize = parseFloat(computedStyles.fontSize) || 16;
-                        contentDisplay.style.fontSize = `${currentSize * 1.2}px`;
-                        contentDisplay.style.lineHeight = computedStyles.lineHeight;
-                        
-                        // IMPORTANT: We do NOT iterate over querySelectorAll('*') 
-                        // because that destroys custom font sizes set by the user in the rich text editor.
+                        contentDisplay.style.fontSize = `${currentSize * 1.25}px`;
+                        contentDisplay.style.lineHeight = computedStyles.lineHeight || '1.6';
+                        // Text on background photo is always pure white with soft glow for maximum legibility
+                        contentDisplay.style.color = (hasBgImage || isDarkMode) ? '#ffffff' : '#1e293b';
+                        contentDisplay.style.textShadow = (hasBgImage || isDarkMode)
+                            ? '0 2px 14px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.8)' 
+                            : '0 1px 4px rgba(255, 255, 255, 0.8)';
+                        contentDisplay.style.letterSpacing = '0.015em';
                     }
                 }
             } else {
-                // Simple Text Post aesthetic match
-                const contentDiv = cardClone.querySelector('.blog-post-content');
+                // Simple Text Post aesthetic match for 9:16 Story
                 if (contentDiv) {
                     const textContainer = contentDiv.querySelector('div') || contentDiv;
                     const origContentDiv = cardElement.querySelector('.blog-post-content');
@@ -455,22 +516,22 @@ const BlogCard = memo(({ blog }) => {
                     if (textContainer && origTextContainer) {
                         const computedStyles = window.getComputedStyle(origTextContainer);
                         const currentSize = parseFloat(computedStyles.fontSize) || 16;
-                        textContainer.style.fontSize = `${currentSize * 1.1}px`;
-                        textContainer.style.lineHeight = computedStyles.lineHeight || '1.6';
-                        textContainer.style.color = isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.85)';
+                        textContainer.style.fontSize = `${currentSize * 1.2}px`;
+                        textContainer.style.lineHeight = computedStyles.lineHeight || '1.7';
+                        textContainer.style.color = isDarkMode ? '#f1f3f9' : '#1e293b';
                         textContainer.style.textAlign = 'left';
-                        textContainer.style.paddingTop = '15px';
-                        textContainer.style.borderTop = '2px solid #e64980'; // Pink horizontal line
+                        textContainer.style.paddingTop = '20px';
+                        textContainer.style.borderTop = isDarkMode ? '2px solid rgba(255, 51, 102, 0.5)' : '2px solid rgba(225, 29, 72, 0.45)';
                         
                         // Add subtle aesthetic quotes
                         const quoteIcon = document.createElement('div');
                         quoteIcon.innerHTML = '”';
                         quoteIcon.style.position = 'absolute';
-                        quoteIcon.style.top = '15px';
-                        quoteIcon.style.right = '25px';
-                        quoteIcon.style.fontSize = '60px';
+                        quoteIcon.style.top = '18px';
+                        quoteIcon.style.right = '28px';
+                        quoteIcon.style.fontSize = '70px';
                         quoteIcon.style.fontFamily = 'Georgia, serif';
-                        quoteIcon.style.color = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+                        quoteIcon.style.color = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
                         quoteIcon.style.zIndex = '0';
                         quoteIcon.style.pointerEvents = 'none';
                         quoteIcon.style.lineHeight = '1';
@@ -481,54 +542,69 @@ const BlogCard = memo(({ blog }) => {
                 }
             }
 
-            // Style the card clone inside the wrapper
+            // Style the card clone inside the 9:16 story wrapper
             cardClone.style.width = '100%';
-            cardClone.style.maxWidth = 'none'; // Unset max-width
-            cardClone.style.flex = '0 0 auto'; // Don't shrink or stretch vertically
+            cardClone.style.maxWidth = 'none';
+            cardClone.style.flex = '1 1 auto';
             cardClone.style.display = 'flex';
             cardClone.style.flexDirection = 'column';
-            cardClone.style.marginTop = 'auto'; // Center vertically if space allows
-            cardClone.style.marginBottom = 'auto'; // Center vertically if space allows
-            // Simple flat aesthetic
-            cardClone.style.boxShadow = 'none';
-            cardClone.style.borderRadius = '16px'; 
-            cardClone.style.border = isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)';
-            cardClone.style.overflow = 'visible'; // Allow content to show
             cardClone.style.transform = 'none';
             cardClone.style.margin = '0 auto';
-            cardClone.style.padding = '30px'; // Standard internal padding
+            cardClone.style.marginBottom = '0';
+            cardClone.style.borderRadius = '24px';
+            cardClone.style.overflow = 'hidden';
 
-            if (isDarkMode) {
-                cardClone.style.backgroundColor = '#121215'; // Very dark background like image
-                cardClone.style.color = 'rgba(255, 255, 255, 0.9)';
+            if (!isTextOnly) {
+                // Poetry/Shayari: artwork fills card cleanly without redundant black borders
+                cardClone.style.padding = '0';
+                cardClone.style.backgroundColor = 'transparent';
+                cardClone.style.border = isDarkMode 
+                    ? '1px solid rgba(255, 255, 255, 0.12)' 
+                    : '1px solid rgba(15, 23, 42, 0.08)';
+                cardClone.style.boxShadow = isDarkMode 
+                    ? '0 24px 50px -12px rgba(0, 0, 0, 0.85), 0 0 1px 1px rgba(255, 255, 255, 0.08), 0 12px 30px rgba(255, 51, 102, 0.07)' 
+                    : '0 20px 45px -10px rgba(15, 23, 42, 0.20), 0 4px 14px rgba(15, 23, 42, 0.08), 0 0 1px 1px rgba(0, 0, 0, 0.04)';
             } else {
-                cardClone.style.backgroundColor = '#ffffff';
-                cardClone.style.color = '#1a1a1a';
+                // Text posts: elegant card container
+                cardClone.style.padding = '44px 34px';
+                cardClone.style.justifyContent = 'center';
+                cardClone.style.backgroundColor = isDarkMode ? '#13141b' : '#ffffff';
+                cardClone.style.border = isDarkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)';
+                cardClone.style.boxShadow = isDarkMode 
+                    ? '0 24px 50px -12px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.06)' 
+                    : '0 18px 40px -12px rgba(0, 0, 0, 0.1)';
+                cardClone.style.color = isDarkMode ? '#f1f3f9' : '#1e293b';
             }
 
             // Add Branding / Footer
             const footer = document.createElement('div');
-            footer.style.marginTop = '15px';
-            footer.style.flexShrink = '0'; // Prevent footer compression
+            footer.style.marginTop = '20px';
+            footer.style.marginBottom = '2px';
+            footer.style.flexShrink = '0';
             footer.style.textAlign = 'center';
             footer.style.display = 'flex';
             footer.style.flexDirection = 'column';
             footer.style.alignItems = 'center';
-            footer.style.gap = '5px';
+            footer.style.gap = '6px';
             
-            // Heart Icon
+            // Heart Icon with subtle glow
             const heartIcon = document.createElement('div');
             heartIcon.innerHTML = '♥';
-            heartIcon.style.color = '#e64980'; // Pink heart
-            heartIcon.style.fontSize = '10px';
-            heartIcon.style.marginBottom = '2px';
+            heartIcon.style.color = isDarkMode ? '#ff3366' : '#e11d48';
+            heartIcon.style.fontSize = '13px';
+            heartIcon.style.lineHeight = '1';
+            heartIcon.style.filter = isDarkMode ? 'drop-shadow(0 0 8px rgba(255, 51, 102, 0.75))' : 'none';
 
+            // Brand Name with tracked luxury typography
             const brandName = document.createElement('div');
-            brandName.style.color = '#e64980'; // Pink brand text
+            brandName.style.color = isDarkMode ? '#ff6584' : '#e11d48';
             brandName.style.fontSize = '12px';
-            brandName.style.fontWeight = '800';
-            brandName.style.letterSpacing = '5px';
+            brandName.style.fontWeight = '750';
+            brandName.style.letterSpacing = '5.5px';
             brandName.style.textTransform = 'uppercase';
+            brandName.style.fontFamily = "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+            brandName.style.lineHeight = '1';
+            brandName.style.textShadow = isDarkMode ? '0 0 16px rgba(255, 101, 132, 0.35)' : 'none';
             brandName.innerHTML = 'DIL KI BAAT';
 
             footer.appendChild(heartIcon);
@@ -538,34 +614,17 @@ const BlogCard = memo(({ blog }) => {
             wrapper.appendChild(footer);
             document.body.appendChild(wrapper);
 
-            // Fix for aspectRatio which html2canvas ignores, and make it auto-adjustable
-            const elementsWithAspectRatio = wrapper.querySelectorAll('*');
-            elementsWithAspectRatio.forEach(el => {
-                if (el.style.aspectRatio && el.style.aspectRatio !== 'auto') {
-                    const match = el.style.aspectRatio.match(/(\d+)\s*\/\s*(\d+)/);
-                    if (match) {
-                        const w = parseFloat(match[1]);
-                        const h = parseFloat(match[2]);
-                        const width = el.offsetWidth;
-                        const expectedHeight = width * (h / w);
-                        
-                        // Set height to max of expected aspect ratio height or the actual scrollHeight to be auto-adjustable
-                        const finalHeight = Math.max(expectedHeight, el.scrollHeight);
-                        el.style.height = `${finalHeight}px`;
-                        el.style.aspectRatio = 'auto';
-                    }
-                }
-            });
-
             const html2canvas = (await import('html2canvas')).default;
             const canvas = await html2canvas(wrapper, {
-                backgroundColor: isDarkMode ? '#15151a' : '#f4f4f8',
-                scale: 2, // High resolution (480px * 2 = 960px output)
-                logging: true,
+                backgroundColor: isDarkMode ? '#0d0e13' : '#f8f9fc',
+                scale: 2, // 540x960 * 2 = 1080x1920 (Exact 9:16 Instagram Story resolution)
+                logging: false,
                 useCORS: true,
                 allowTaint: true,
-                width: 480,
-                windowWidth: 480,
+                width: 540,
+                height: 960,
+                windowWidth: 540,
+                windowHeight: 960,
                 ignoreElements: (element) => element.classList.contains('no-export'),
             });
 
