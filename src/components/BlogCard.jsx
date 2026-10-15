@@ -531,17 +531,8 @@ const BlogCard = memo(({ blog }) => {
             brandName.style.textTransform = 'uppercase';
             brandName.innerHTML = 'DIL KI BAAT';
 
-            const dateInfo = document.createElement('div');
-            dateInfo.style.color = isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-            dateInfo.style.fontSize = '9px';
-            dateInfo.style.fontWeight = '500';
-            dateInfo.style.letterSpacing = '1px';
-            dateInfo.style.fontFamily = "'Inter', sans-serif";
-            dateInfo.innerHTML = `- ${dayjs().format('DD MMM YYYY')} -`;
-
             footer.appendChild(heartIcon);
             footer.appendChild(brandName);
-            footer.appendChild(dateInfo);
 
             wrapper.appendChild(cardClone);
             wrapper.appendChild(footer);
@@ -779,6 +770,7 @@ const BlogCard = memo(({ blog }) => {
                                     </motion.div>
                                     <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                                         <Badge
+                                            className="no-export"
                                             color="violet"
                                             variant="light"
                                             size="sm"
@@ -790,6 +782,7 @@ const BlogCard = memo(({ blog }) => {
                                             {displayBlog.displayMode === 'Shayari' ? 'Shayari' : 'Poetry'}
                                         </Badge>
                                         <Badge
+                                            className="no-export"
                                             color="pink"
                                             variant="light"
                                             size="sm"
@@ -925,6 +918,7 @@ const BlogCard = memo(({ blog }) => {
                                     </motion.div>
                                     <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                                         <Badge
+                                            className="no-export"
                                             color="pink"
                                             variant="light"
                                             size="sm"

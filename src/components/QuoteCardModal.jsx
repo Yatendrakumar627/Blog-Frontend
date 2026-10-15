@@ -74,6 +74,10 @@ const THEMES = [
     }
 ];
 
+// Story export target: exact 9:16 (1080 x 1920)
+const STORY_W = 1080;
+const STORY_H = 1920;
+
 const QuoteCardModal = ({
     opened,
     onClose,
@@ -87,6 +91,8 @@ const QuoteCardModal = ({
     const [isDownloading, setIsDownloading] = useState(false);
     const [isCopying, setIsCopying] = useState(false);
     const cardRef = useRef(null);
+    const bodyRef = useRef(null);
+    const contentRef = useRef(null);
 
     const theme = THEMES.find(t => t.id === selectedTheme) || THEMES[0];
 
@@ -96,16 +102,63 @@ const QuoteCardModal = ({
         ALLOWED_ATTR: ['style', 'class']
     });
 
+    // Scale the body down proportionally so all content fits inside the 9:16 frame
+    const applyFit = () => {
+        const body = bodyRef.current;
+        const content = contentRef.current;
+        if (!body || !content) return;
+        content.style.transform = '';
+        const avail = body.clientHeight;
+        const natural = content.scrollHeight;
+        if (avail > 0 && natural > avail) {
+            content.style.transformOrigin = 'center center';
+            content.style.transform = `scale(${avail / natural})`;
+        }
+    };
+
+    const resetFit = () => {
+        if (contentRef.current) {
+            contentRef.current.style.transform = '';
+            contentRef.current.style.transformOrigin = '';
+        }
+    };
+
     const generateCanvas = async () => {
-        if (!cardRef.current) return null;
+        const el = cardRef.current;
+        if (!el) return null;
         const html2canvas = (await import('html2canvas')).default;
-        return await html2canvas(cardRef.current, {
-            scale: 2, // High resolution for Retina/Instagram Story
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: null,
-            logging: false
-        });
+
+        // html2canvas ignores CSS aspect-ratio, so pin the current rendered height as explicit px
+        const prevHeight = el.style.height;
+        const prevAspect = el.style.aspectRatio;
+        applyFit();
+        el.style.height = `${el.offsetHeight}px`;
+        el.style.aspectRatio = 'auto';
+
+        try {
+            const width = el.getBoundingClientRect().width || el.offsetWidth;
+            const scale = STORY_W / width;
+
+            const rendered = await html2canvas(el, {
+                scale, // Renders to ~1080px wide regardless of preview size
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: null,
+                logging: false
+            });
+
+            // Normalize onto an exact 1080 x 1920 (9:16) canvas
+            const out = document.createElement('canvas');
+            out.width = STORY_W;
+            out.height = STORY_H;
+            const ctx = out.getContext('2d');
+            ctx.drawImage(rendered, 0, 0, STORY_W, STORY_H);
+            return out;
+        } finally {
+            el.style.height = prevHeight;
+            el.style.aspectRatio = prevAspect;
+            resetFit();
+        }
     };
 
     const handleDownload = async () => {
@@ -175,7 +228,8 @@ const QuoteCardModal = ({
                 <Group gap="xs">
                     <IconSparkles size={18} color="#e64980" />
                     <Text fw={700} size="sm">Export Aesthetic Story & Quote Card</Text>
-                    <Badge variant="light" color="pink" size="xs">2026 Ready</Badge>
+                    <Badge variant="light" color="pink" size="xs">9:16 Story</Badge>
+                    <Badge variant="light" color="gray" size="xs">2026 Ready</Badge>
                 </Group>
             }
             size="lg"
@@ -216,9 +270,9 @@ const QuoteCardModal = ({
                     <div
                         ref={cardRef}
                         style={{
-                            width: '100%',
-                            maxWidth: '420px',
-                            minHeight: '380px',
+                            width: '320px',
+                            maxWidth: '100%',
+                            aspectRatio: '9 / 16',
                             background: theme.bg,
                             color: theme.textColor,
                             borderRadius: '24px',
@@ -282,6 +336,7 @@ const QuoteCardModal = ({
 
                         {/* Main Content Body */}
                         <div
+                            ref={bodyRef}
                             style={{
                                 flex: 1,
                                 display: 'flex',
@@ -291,6 +346,7 @@ const QuoteCardModal = ({
                             }}
                         >
                             <div
+                                ref={contentRef}
                                 style={{
                                     fontSize: displayMode === 'Shayari' || displayMode === 'Poetry' ? '1.15rem' : '1.05rem',
                                     lineHeight: '1.7',
