@@ -38,6 +38,6 @@ export const generateThemeFromColor = (primaryColor) => {
                radial-gradient(circle at 100% 100%, ${adjustColor(primaryColor, -150)}22 0%, transparent 50%), 
                radial-gradient(circle at 0% 100%, ${adjustColor(primaryColor, -80)}11 0%, transparent 50%)`,
         bgLight: adjustColor(primaryColor, 230),
-        bgDark: adjustColor(primaryColor, -240)
+        bgDark: '#0f0e17'
     };
 };

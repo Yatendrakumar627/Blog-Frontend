@@ -50,34 +50,118 @@ import { ReactionRain } from '../components/ReactionRain';
 import { TypingIndicator } from '../components/TypingIndicator';
 
 
-// Memoized Message Item for performance
-const MessageItem = memo(({ message, isOwn, isDark, onDelete, onReply, onReaction, onImageClick, showAvatar }) => {
+// Memoized Message Item with intelligent burst grouping, inline timestamps, and contextual actions
+const MessageItem = memo(({
+    message,
+    isOwn,
+    isDark,
+    isFirstInGroup = true,
+    isLastInGroup = true,
+    showAvatar = false,
+    activeTheme,
+    onDelete,
+    onReply,
+    onReaction,
+    onImageClick
+}) => {
+    const [menuOpened, setMenuOpened] = useState(false);
     const reactionsCount = message.reactions?.reduce((acc, r) => {
         acc[r.emoji] = (acc[r.emoji] || 0) + 1;
         return acc;
     }, {}) || {};
+    const hasReactions = Object.keys(reactionsCount).length > 0;
+
+    // Corner radius based on position in consecutive message burst
+    const getBorderRadius = () => {
+        if (isOwn) {
+            if (isFirstInGroup && isLastInGroup) return '18px 18px 4px 18px';
+            if (isFirstInGroup && !isLastInGroup) return '18px 18px 5px 18px';
+            if (!isFirstInGroup && !isLastInGroup) return '18px 5px 5px 18px';
+            return '18px 5px 18px 18px'; // isLastInGroup
+        } else {
+            if (isFirstInGroup && isLastInGroup) return '18px 18px 18px 4px';
+            if (isFirstInGroup && !isLastInGroup) return '18px 18px 18px 5px';
+            if (!isFirstInGroup && !isLastInGroup) return '5px 18px 18px 5px';
+            return '5px 18px 18px 18px'; // isLastInGroup
+        }
+    };
+
+    // Sophisticated palette for bubbles
+    const getBubbleStyle = () => {
+        if (isOwn) {
+            let bg = 'linear-gradient(135deg, #e64980 0%, #d6336c 55%, #c2255c 100%)';
+            let shadow = '0 2px 10px rgba(214, 51, 108, 0.28)';
+            if (activeTheme?.startsWith('custom:')) {
+                const hex = activeTheme.split(':')[1];
+                bg = `linear-gradient(135deg, ${hex} 0%, ${hex}dd 100%)`;
+                shadow = `0 2px 10px ${hex}40`;
+            } else if (activeTheme === 'ocean') {
+                bg = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 55%, #0369a1 100%)';
+                shadow = '0 2px 10px rgba(2, 132, 199, 0.28)';
+            } else if (activeTheme === 'sunset') {
+                bg = 'linear-gradient(135deg, #f97316 0%, #ea580c 55%, #c2410c 100%)';
+                shadow = '0 2px 10px rgba(234, 88, 12, 0.28)';
+            } else if (activeTheme === 'midnight') {
+                bg = 'linear-gradient(135deg, #6366f1 0%, #4f46e5 55%, #4338ca 100%)';
+                shadow = '0 2px 10px rgba(79, 70, 229, 0.28)';
+            } else if (activeTheme === 'love') {
+                bg = 'linear-gradient(135deg, #fb7185 0%, #f43f5e 50%, #e11d48 100%)';
+                shadow = '0 2px 10px rgba(244, 63, 94, 0.32)';
+            }
+            return {
+                background: bg,
+                color: '#ffffff',
+                boxShadow: shadow,
+                border: '1px solid rgba(255, 255, 255, 0.15)'
+            };
+        } else {
+            return {
+                background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
+                backdropFilter: isDark ? 'blur(12px)' : 'none',
+                WebkitBackdropFilter: isDark ? 'blur(12px)' : 'none',
+                border: isDark ? '1px solid rgba(255, 255, 255, 0.09)' : '1px solid rgba(0, 0, 0, 0.06)',
+                color: isDark ? '#f8f9fa' : '#1f2937',
+                boxShadow: isDark ? '0 2px 8px rgba(0, 0, 0, 0.22)' : '0 1px 4px rgba(0, 0, 0, 0.05)'
+            };
+        }
+    };
+
+    const bubbleStyle = getBubbleStyle();
+    const timeString = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Quick emoji set for instantaneous reaction
+    const quickEmojis = ['❤️', '👍', '😂', '🔥', '😮', '🙏'];
+
     return (
         <Group
             align="flex-end"
             justify={isOwn ? 'flex-end' : 'flex-start'}
-            gap="xs"
-            mb={2}
-            style={{ position: 'relative', padding: '0 10px' }}
+            gap={6}
+            mb={hasReactions ? (isLastInGroup ? 16 : 10) : (isLastInGroup ? 10 : 2)}
+            style={{
+                position: 'relative',
+                padding: '0 4px',
+                width: '100%',
+                transition: 'margin 0.15s ease'
+            }}
             onMouseEnter={(e) => {
-                const btn = e.currentTarget.querySelector('.delete-btn');
-                if (btn) btn.style.opacity = 1;
+                const btn = e.currentTarget.querySelector('.message-action-btn');
+                if (btn) btn.style.opacity = '1';
             }}
             onMouseLeave={(e) => {
-                const btn = e.currentTarget.querySelector('.delete-btn');
-                if (btn) btn.style.opacity = 0;
+                if (!menuOpened) {
+                    const btn = e.currentTarget.querySelector('.message-action-btn');
+                    if (btn) btn.style.opacity = '0';
+                }
             }}
         >
+            {/* Avatar for incoming sender */}
             {!isOwn && (
-                <Box w={28}>
-                    {showAvatar && (
+                <Box w={28} style={{ flexShrink: 0, alignSelf: 'flex-end', paddingBottom: 2 }}>
+                    {showAvatar ? (
                         <Indicator
                             inline
-                            size={8}
+                            size={7}
                             offset={2}
                             position="bottom-end"
                             color="green"
@@ -85,171 +169,322 @@ const MessageItem = memo(({ message, isOwn, isDark, onDelete, onReply, onReactio
                             disabled={!message.sender?.isOnline}
                             processing={message.sender?.isOnline}
                         >
-                            <Avatar src={message.sender?.profilePic} size={28} radius="xl">
-                                {message.sender?.username?.[0]}
+                            <Avatar
+                                src={message.sender?.profilePic}
+                                size={28}
+                                radius="xl"
+                                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
+                            >
+                                {message.sender?.username?.[0]?.toUpperCase()}
                             </Avatar>
                         </Indicator>
+                    ) : (
+                        <Box w={28} h={28} />
                     )}
                 </Box>
             )}
 
-            <Stack gap={2} align={isOwn ? 'flex-end' : 'flex-start'} maw="75%">
-                <Group gap={4} align="center">
-                    {isOwn && (
-                        <Menu shadow="md" width={120} position="bottom-end" withinPortal>
-                            <Menu.Target>
+            {/* Own Action Menu (shows on left of bubble) */}
+            {isOwn && (
+                <Menu
+                    opened={menuOpened}
+                    onChange={setMenuOpened}
+                    shadow="lg"
+                    width={200}
+                    position="bottom-end"
+                    withinPortal
+                    transitionProps={{ duration: 150, transition: 'pop' }}
+                >
+                    <Menu.Target>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            radius="xl"
+                            className="message-action-btn"
+                            style={{
+                                opacity: menuOpened ? 1 : 0,
+                                transition: 'opacity 0.2s ease, transform 0.15s ease',
+                                alignSelf: 'center'
+                            }}
+                        >
+                            <IconDotsVertical size={14} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown p={6}>
+                        {/* Quick reaction row */}
+                        <Group gap={4} p={4} justify="center" wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-default-border)', marginBottom: 4 }}>
+                            {quickEmojis.map(emoji => (
                                 <ActionIcon
+                                    key={emoji}
                                     variant="subtle"
-                                    color="gray"
-                                    size="xs"
-                                    style={{ opacity: 0, transition: 'opacity 0.2s ease' }}
-                                    className="delete-btn"
+                                    size="sm"
+                                    onClick={() => {
+                                        onReaction(emoji);
+                                        setMenuOpened(false);
+                                    }}
+                                    style={{ fontSize: 14 }}
                                 >
-                                    <IconDotsVertical size={14} />
+                                    {emoji}
                                 </ActionIcon>
-                            </Menu.Target>
-                            <Menu.Dropdown>
-                                <Menu.Item
-                                    leftSection={<IconArrowBackUp size={14} />}
-                                    onClick={onReply}
-                                >
-                                    Reply
-                                </Menu.Item>
-                                <Menu.Item
-                                    color="red"
-                                    leftSection={<IconTrash size={14} />}
-                                    onClick={onDelete}
-                                >
-                                    Delete
-                                </Menu.Item>
-                            </Menu.Dropdown>
-                        </Menu>
+                            ))}
+                        </Group>
+                        <Menu.Item
+                            leftSection={<IconArrowBackUp size={14} />}
+                            onClick={() => {
+                                onReply();
+                                setMenuOpened(false);
+                            }}
+                        >
+                            Reply
+                        </Menu.Item>
+                        <Menu.Item
+                            color="red"
+                            leftSection={<IconTrash size={14} />}
+                            onClick={() => {
+                                onDelete();
+                                setMenuOpened(false);
+                            }}
+                        >
+                            Delete
+                        </Menu.Item>
+                    </Menu.Dropdown>
+                </Menu>
+            )}
+
+            {/* Bubble & Floating Content */}
+            <Box
+                style={{
+                    position: 'relative',
+                    maxWidth: '85%',
+                    minWidth: 54,
+                    width: 'fit-content'
+                }}
+            >
+                <Box
+                    py={7}
+                    px={12}
+                    style={{
+                        borderRadius: getBorderRadius(),
+                        background: bubbleStyle.background,
+                        backdropFilter: bubbleStyle.backdropFilter,
+                        WebkitBackdropFilter: bubbleStyle.WebkitBackdropFilter,
+                        border: bubbleStyle.border,
+                        color: bubbleStyle.color,
+                        boxShadow: bubbleStyle.boxShadow,
+                        position: 'relative',
+                        transition: 'border-radius 0.2s ease'
+                    }}
+                >
+                    {/* Reply Snippet */}
+                    {message.replyTo && (
+                        <Box
+                            mb={6}
+                            p="5px 10px"
+                            style={{
+                                backgroundColor: isOwn ? 'rgba(0,0,0,0.18)' : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
+                                borderRadius: '8px',
+                                borderLeft: `3px solid ${isOwn ? '#ffffff' : '#e64980'}`
+                            }}
+                        >
+                            <Text size="xs" fw={700} style={{ opacity: 0.95, color: isOwn ? '#ffffff' : (isDark ? '#faa2c1' : '#d6336c') }}>
+                                {message.replyTo.sender?._id === message.sender?._id ? 'You' : message.replyTo.sender?.username}
+                            </Text>
+                            <Text size="xs" lineClamp={1} style={{ opacity: 0.85 }}>
+                                {message.replyTo.text}
+                            </Text>
+                        </Box>
                     )}
+
+                    {/* Shared Image Media */}
+                    {message.mediaUrl && (
+                        <Box
+                            mb={4}
+                            style={{ cursor: 'pointer', borderRadius: '10px', overflow: 'hidden' }}
+                            onClick={() => onImageClick(message.mediaUrl)}
+                        >
+                            <motion.img
+                                layoutId={message.mediaUrl}
+                                src={message.mediaUrl}
+                                alt="Shared media"
+                                style={{ width: '100%', maxHeight: 220, objectFit: 'cover', display: 'block' }}
+                            />
+                        </Box>
+                    )}
+
+                    {/* Justified Text + Inside-Bubble Timestamp Layout */}
                     <Box
-                        py={8}
-                        px={12}
                         style={{
-                            borderRadius: isOwn ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
-                            backgroundColor: isOwn
-                                ? 'var(--mantine-primary-color-filled)'
-                                : (isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-white)'),
-                            color: isOwn
-                                ? 'var(--mantine-primary-color-contrast)'
-                                : 'var(--mantine-color-text)',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                            minWidth: 100
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'flex-end',
+                            justifyContent: 'flex-end',
+                            gap: '4px 10px',
+                            maxWidth: '100%'
                         }}
                     >
-                        {message.replyTo && (
-                            <Box
-                                mb={4}
-                                p={6}
-                                style={{
-                                    backgroundColor: isOwn ? 'rgba(0,0,0,0.1)' : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'),
-                                    borderRadius: '8px',
-                                    borderLeft: `4px solid ${isOwn ? 'white' : 'var(--mantine-primary-color-filled)'}`
-                                }}
-                            >
-                                <Text size="xs" fw={700} style={{ opacity: 0.9 }}>
-                                    {message.replyTo.sender?._id === message.sender?._id ? 'You' : message.replyTo.sender?.username}
-                                </Text>
-                                <Text size="xs" lineClamp={1} style={{ opacity: 0.8 }}>
-                                    {message.replyTo.text}
-                                </Text>
-                            </Box>
-                        )}
-                        {message.mediaUrl && (
-                            <Box mb={4} style={{ cursor: 'pointer', borderRadius: '8px', overflow: 'hidden' }} onClick={() => onImageClick(message.mediaUrl)}>
-                                <motion.img
-                                    layoutId={message.mediaUrl}
-                                    src={message.mediaUrl}
-                                    alt="Shared media"
-                                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }}
-                                />
-                            </Box>
-                        )}
-                        <Text size="sm" style={{ wordBreak: 'break-word' }}>
+                        <Text
+                            component="span"
+                            style={{
+                                flex: '1 1 auto',
+                                fontSize: '14.5px',
+                                lineHeight: 1.42,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'anywhere',
+                                color: 'inherit'
+                            }}
+                        >
                             {message.text}
                         </Text>
+                        <Box
+                            component="span"
+                            style={{
+                                flex: '0 0 auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3.5,
+                                lineHeight: 1,
+                                userSelect: 'none',
+                                paddingBottom: 1,
+                                marginLeft: 'auto'
+                            }}
+                        >
+                            <Text
+                                component="span"
+                                style={{
+                                    fontSize: '10px',
+                                    fontWeight: 500,
+                                    letterSpacing: '0.01em',
+                                    color: isOwn
+                                        ? 'rgba(255, 255, 255, 0.72)'
+                                        : (isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.42)')
+                                }}
+                            >
+                                {timeString}
+                            </Text>
+                            {isOwn && (
+                                message.isPending ? (
+                                    <span style={{ width: 10, height: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <span style={{
+                                            width: 7,
+                                            height: 7,
+                                            borderRadius: '50%',
+                                            border: '1.5px solid rgba(255,255,255,0.4)',
+                                            borderTopColor: 'white',
+                                            animation: 'spin 1s linear infinite',
+                                            display: 'inline-block'
+                                        }} />
+                                    </span>
+                                ) : (
+                                    <IconCheck size={12} stroke={2.5} style={{ color: 'rgba(255, 255, 255, 0.85)' }} />
+                                )
+                            )}
+                        </Box>
                     </Box>
-                    <Box style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {!isOwn && (
-                            <Menu shadow="md" width={120} position="bottom-end" withinPortal>
-                                <Menu.Target>
-                                    <ActionIcon
-                                        variant="subtle"
-                                        color="gray"
-                                        size="xs"
-                                        style={{ opacity: 0, transition: 'opacity 0.2s ease' }}
-                                        className="delete-btn"
-                                    >
-                                        <IconDotsVertical size={14} />
-                                    </ActionIcon>
-                                </Menu.Target>
-                                <Menu.Dropdown>
-                                    <Menu.Item
-                                        leftSection={<IconArrowBackUp size={14} />}
-                                        onClick={onReply}
-                                    >
-                                        Reply
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        leftSection={<Text size="xs">❤️</Text>}
-                                        onClick={() => onReaction('❤️')}
-                                    >
-                                        Love
-                                    </Menu.Item>
-                                    <Menu.Item
-                                        leftSection={<Text size="xs">👍</Text>}
-                                        onClick={() => onReaction('👍')}
-                                    >
-                                        Like
-                                    </Menu.Item>
-                                </Menu.Dropdown>
-                            </Menu>
-                        )}
-                        {/* Reactions Display */}
-                        {Object.entries(reactionsCount).length > 0 && (
-                            <Group gap={4} wrap="nowrap">
-                                {Object.entries(reactionsCount).map(([emoji, count]) => (
-                                    <Badge
-                                        key={emoji}
-                                        size="xs"
-                                        variant="light"
-                                        color="gray"
-                                        px={4}
-                                        style={{ height: 18, cursor: 'pointer' }}
-                                        onClick={() => onReaction(emoji)}
-                                    >
-                                        {emoji} {count > 1 ? count : ''}
-                                    </Badge>
-                                ))}
-                            </Group>
-                        )}
+                </Box>
+
+                {/* Micro-Pill Floating Reactions */}
+                {hasReactions && (
+                    <Box
+                        style={{
+                            position: 'absolute',
+                            bottom: -9,
+                            [isOwn ? 'right' : 'left']: 8,
+                            zIndex: 3,
+                            display: 'flex',
+                            gap: 3
+                        }}
+                    >
+                        {Object.entries(reactionsCount).map(([emoji, count]) => (
+                            <Box
+                                key={emoji}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onReaction(emoji);
+                                }}
+                                style={{
+                                    background: isDark ? '#1a1b1e' : '#ffffff',
+                                    border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid rgba(0, 0, 0, 0.1)',
+                                    borderRadius: '12px',
+                                    padding: '1px 6px',
+                                    fontSize: '11px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                    color: isDark ? '#ffffff' : '#000000',
+                                    lineHeight: 1.2,
+                                    transition: 'transform 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                            >
+                                <span>{emoji}</span>
+                                {count > 1 && <span style={{ fontSize: '10px', fontWeight: 700 }}>{count}</span>}
+                            </Box>
+                        ))}
                     </Box>
-                </Group>
-                <Group gap={4}>
-                    <Text size="10px" c="dimmed">
-                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    {isOwn && (
-                        message.isPending ? (
-                            <div style={{ width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: '50%',
-                                    border: '2px solid rgba(255,255,255,0.5)',
-                                    borderTopColor: 'white',
-                                    animation: 'spin 1s linear infinite'
-                                }} />
-                            </div>
-                        ) : (
-                            <IconCheck size={12} style={{ opacity: 0.5 }} />
-                        )
-                    )}
-                </Group>
-            </Stack>
+                )}
+            </Box>
+
+            {/* Incoming Action Menu (shows on right of bubble) */}
+            {!isOwn && (
+                <Menu
+                    opened={menuOpened}
+                    onChange={setMenuOpened}
+                    shadow="lg"
+                    width={200}
+                    position="bottom-start"
+                    withinPortal
+                    transitionProps={{ duration: 150, transition: 'pop' }}
+                >
+                    <Menu.Target>
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            size="sm"
+                            radius="xl"
+                            className="message-action-btn"
+                            style={{
+                                opacity: menuOpened ? 1 : 0,
+                                transition: 'opacity 0.2s ease, transform 0.15s ease',
+                                alignSelf: 'center'
+                            }}
+                        >
+                            <IconDotsVertical size={14} />
+                        </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown p={6}>
+                        {/* Quick reaction row */}
+                        <Group gap={4} p={4} justify="center" wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-default-border)', marginBottom: 4 }}>
+                            {quickEmojis.map(emoji => (
+                                <ActionIcon
+                                    key={emoji}
+                                    variant="subtle"
+                                    size="sm"
+                                    onClick={() => {
+                                        onReaction(emoji);
+                                        setMenuOpened(false);
+                                    }}
+                                    style={{ fontSize: 14 }}
+                                >
+                                    {emoji}
+                                </ActionIcon>
+                            ))}
+                        </Group>
+                        <Menu.Item
+                            leftSection={<IconArrowBackUp size={14} />}
+                            onClick={() => {
+                                onReply();
+                                setMenuOpened(false);
+                            }}
+                        >
+                            Reply
+                        </Menu.Item>
+                    </Menu.Dropdown>
+                </Menu>
+            )}
         </Group>
     );
 });
@@ -257,38 +492,38 @@ const MessageItem = memo(({ message, isOwn, isDark, onDelete, onReply, onReactio
 const themes = {
     default: {
         name: 'Default',
-        light: 'radial-gradient(circle at 0% 0%, rgba(250, 208, 196, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(161, 196, 253, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(255, 209, 255, 0.4) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(161, 196, 253, 0.1) 0%, transparent 50%)',
-        dark: 'radial-gradient(circle at 0% 0%, rgba(255, 0, 153, 0.15) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(0, 212, 255, 0.15) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(73, 50, 64, 0.3) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(255, 0, 153, 0.05) 0%, transparent 50%)',
+        light: 'radial-gradient(at 15% 15%, rgba(250, 208, 196, 0.4) 0px, transparent 55%), radial-gradient(at 85% 85%, rgba(255, 209, 255, 0.35) 0px, transparent 55%)',
+        dark: 'radial-gradient(at 15% 15%, rgba(230, 73, 128, 0.08) 0px, transparent 55%), radial-gradient(at 85% 85%, rgba(190, 75, 219, 0.06) 0px, transparent 55%)',
         bgLight: '#fdfbfb',
-        bgDark: '#0f0c29'
+        bgDark: '#0f0e17'
     },
     love: {
         name: 'Love',
-        light: 'radial-gradient(circle at 0% 0%, rgba(255, 182, 193, 0.6) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(255, 192, 203, 0.6) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(255, 228, 225, 0.6) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(255, 160, 122, 0.2) 0%, transparent 50%)',
-        dark: 'radial-gradient(circle at 0% 0%, rgba(255, 20, 147, 0.2) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(255, 0, 50, 0.2) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(128, 0, 32, 0.4) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(219, 112, 147, 0.1) 0%, transparent 50%)',
+        light: 'radial-gradient(circle at 10% 10%, rgba(255, 182, 193, 0.45) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(255, 192, 203, 0.4) 0%, transparent 50%)',
+        dark: 'radial-gradient(circle at 20% 15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%), radial-gradient(circle at 80% 85%, rgba(225, 29, 72, 0.08) 0%, transparent 50%)',
         bgLight: '#fff0f5',
-        bgDark: '#1a0505'
+        bgDark: '#0f0e17'
     },
     ocean: {
         name: 'Ocean',
-        light: 'radial-gradient(circle at 0% 0%, rgba(179, 229, 252, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(29, 233, 182, 0.2) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(41, 182, 246, 0.2) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(224, 247, 250, 0.5) 0%, transparent 50%)',
-        dark: 'radial-gradient(circle at 0% 0%, rgba(1, 87, 155, 0.3) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(0, 77, 64, 0.3) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(0, 96, 100, 0.3) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(0, 0, 0, 0.2) 0%, transparent 50%)',
+        light: 'radial-gradient(circle at 10% 10%, rgba(179, 229, 252, 0.4) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(41, 182, 246, 0.25) 0%, transparent 50%)',
+        dark: 'radial-gradient(circle at 20% 15%, rgba(14, 165, 233, 0.12) 0%, transparent 55%), radial-gradient(circle at 80% 85%, rgba(2, 132, 199, 0.08) 0%, transparent 50%)',
         bgLight: '#e0f7fa',
-        bgDark: '#001e1e'
+        bgDark: '#0f0e17'
     },
     sunset: {
         name: 'Sunset',
-        light: 'radial-gradient(circle at 0% 0%, rgba(255, 204, 128, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(255, 171, 145, 0.4) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(239, 154, 154, 0.4) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(255, 224, 178, 0.4) 0%, transparent 50%)',
-        dark: 'radial-gradient(circle at 0% 0%, rgba(230, 81, 0, 0.2) 0%, transparent 50%), radial-gradient(circle at 100% 0%, rgba(191, 54, 12, 0.2) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(136, 14, 79, 0.2) 0%, transparent 50%), radial-gradient(circle at 0% 100%, rgba(74, 20, 140, 0.2) 0%, transparent 50%)',
+        light: 'radial-gradient(circle at 10% 10%, rgba(255, 204, 128, 0.4) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(255, 171, 145, 0.35) 0%, transparent 50%)',
+        dark: 'radial-gradient(circle at 20% 15%, rgba(249, 115, 22, 0.12) 0%, transparent 55%), radial-gradient(circle at 80% 85%, rgba(225, 29, 72, 0.08) 0%, transparent 50%)',
         bgLight: '#fff3e0',
-        bgDark: '#1a0f00'
+        bgDark: '#0f0e17'
     },
     midnight: {
         name: 'Midnight',
-        light: 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.05) 0%, transparent 100%)',
-        dark: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 100%)',
-        bgLight: '#f5f5f5',
-        bgDark: '#000000'
+        light: 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.04) 0%, transparent 100%)',
+        dark: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 60%)',
+        bgLight: '#f8f9fa',
+        bgDark: '#0f0e17'
     }
 };
 
@@ -892,27 +1127,38 @@ const Chat = () => {
 
     if (loading) {
         return (
-            <Container
-                fluid
-                px={0}
-                h="calc(100dvh - 160px)"
+            <Box
+                w="100%"
+                h="100%"
+                p={0}
+                m={0}
                 style={{
                     display: 'flex',
+                    flex: 1,
+                    minHeight: 0,
+                    width: '100%',
+                    maxWidth: '100%',
                     flexDirection: 'column',
                     overflow: 'hidden',
                     position: 'relative'
                 }}
             >
                 <Paper
-                    shadow="sm"
+                    shadow={isMobile ? 'none' : 'md'}
                     radius={{ base: 0, md: 'md' }}
                     withBorder={!isMobile}
                     style={{
                         display: 'flex',
-                        height: '100%',
+                        flex: isMobile ? 1 : '1 1 auto',
+                        minHeight: 0,
+                        width: '100%',
+                        maxWidth: isMobile ? '100%' : '960px',
+                        height: isMobile ? '100%' : 'calc(100% - 24px)',
+                        margin: isMobile ? 0 : '12px auto',
                         overflow: 'hidden',
-                        backgroundColor: 'var(--mantine-color-body)',
-                        borderColor: isDark ? 'var(--mantine-color-gray-7)' : 'var(--mantine-color-gray-3)',
+                        backgroundColor: isDark ? '#0f0e17' : 'var(--mantine-color-body)',
+                        borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'var(--mantine-color-gray-3)',
+                        boxShadow: isMobile ? 'none' : (isDark ? '0 8px 32px rgba(0, 0, 0, 0.45)' : '0 4px 20px rgba(0, 0, 0, 0.06)'),
                         flexDirection: isMobile ? 'column' : 'row'
                     }}
                 >
@@ -987,7 +1233,7 @@ const Chat = () => {
                         </Box>
                     </Box>
                 </Paper>
-            </Container>
+            </Box>
         );
     }
 
@@ -1005,12 +1251,17 @@ const Chat = () => {
     }
 
     return (
-        <Container
-            fluid
-            px={0}
-            h="calc(100dvh - 160px)"
+        <Box
+            w="100%"
+            h="100%"
+            p={0}
+            m={0}
             style={{
                 display: 'flex',
+                flex: 1,
+                minHeight: 0,
+                width: '100%',
+                maxWidth: '100%',
                 flexDirection: 'column',
                 overflow: 'hidden',
                 position: 'relative'
@@ -1142,15 +1393,21 @@ const Chat = () => {
             </Modal>
 
             <Paper
-                shadow="sm"
+                shadow={isMobile ? 'none' : 'md'}
                 radius={{ base: 0, md: 'md' }}
                 withBorder={!isMobile}
                 style={{
                     display: 'flex',
-                    height: '100%',
+                    flex: isMobile ? 1 : '1 1 auto',
+                    minHeight: 0,
+                    width: '100%',
+                    maxWidth: isMobile ? '100%' : '960px',
+                    height: isMobile ? '100%' : 'calc(100% - 24px)',
+                    margin: isMobile ? 0 : '12px auto',
                     overflow: 'hidden',
-                    backgroundColor: 'var(--mantine-color-body)',
-                    borderColor: isDark ? 'var(--mantine-color-gray-7)' : 'var(--mantine-color-gray-3)',
+                    backgroundColor: isDark ? '#0f0e17' : 'var(--mantine-color-body)',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'var(--mantine-color-gray-3)',
+                    boxShadow: isMobile ? 'none' : (isDark ? '0 8px 32px rgba(0, 0, 0, 0.45)' : '0 4px 20px rgba(0, 0, 0, 0.06)'),
                     flexDirection: isMobile ? 'column' : 'row'
                 }}
             >
@@ -1160,9 +1417,9 @@ const Chat = () => {
                     style={{
                         display: isMobile && activeConversation ? 'none' : 'flex',
                         flexDirection: 'column',
-                        borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-default-border)',
-                        borderBottom: isMobile && activeConversation ? 'none' : '1px solid var(--mantine-color-default-border)',
-                        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'white',
+                        borderRight: isMobile ? 'none' : (isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid var(--mantine-color-default-border)'),
+                        borderBottom: isMobile && activeConversation ? 'none' : (isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid var(--mantine-color-default-border)'),
+                        backgroundColor: isDark ? '#0f0e17' : 'white',
                         order: isMobile ? 2 : 1,
                         height: '100%' // Fill the available space
                     }}
@@ -1487,9 +1744,11 @@ const Chat = () => {
                         flex: 1,
                         display: isMobile && !activeConversation ? 'none' : 'flex',
                         flexDirection: 'column',
-                        backgroundColor: isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-0)',
+                        backgroundColor: isDark ? '#0f0e17' : 'var(--mantine-color-gray-0)',
                         order: isMobile ? 1 : 2,
                         height: '100%', // Fill the available space
+                        width: '100%',
+                        maxWidth: '100%',
                         overflow: 'hidden' // Prevent entire container from scrolling
                     }}
                 >
@@ -1584,27 +1843,30 @@ const Chat = () => {
                                 <>
                                     {/* Chat Header */}
                                     <Paper
-                                        p={{ base: 'xs', md: 'sm' }}
+                                        p={{ base: '8px 10px', md: '10px 16px' }}
                                         radius={0}
                                         style={{
-                                            borderBottom: '1px solid var(--mantine-color-default-border)',
+                                            borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
                                             zIndex: 10,
-                                            backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'white',
-                                            flexShrink: 0 // Prevent header from shrinking
+                                            backgroundColor: isDark ? 'rgba(15, 14, 23, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+                                            backdropFilter: 'blur(16px)',
+                                            WebkitBackdropFilter: 'blur(16px)',
+                                            flexShrink: 0, // Prevent header from shrinking
+                                            width: '100%'
                                         }}
                                     >
                                         <Group justify="space-between" wrap="nowrap">
-                                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                                            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
                                                 {isMobile && (
-                                                    <ActionIcon variant="subtle" color="gray" onClick={handleBackToList}>
+                                                    <ActionIcon variant="subtle" color="gray" size="md" radius="xl" onClick={handleBackToList}>
                                                         <IconArrowLeft size={20} />
                                                     </ActionIcon>
                                                 )}
                                                 {otherUser?.isOnline ? (
                                                     <Indicator
                                                         inline
-                                                        size={10}
-                                                        offset={4}
+                                                        size={9}
+                                                        offset={3}
                                                         position="bottom-end"
                                                         color="green"
                                                         withBorder
@@ -1612,8 +1874,9 @@ const Chat = () => {
                                                         <Avatar
                                                             src={isUserDeleted ? null : otherUser?.profilePic}
                                                             radius="xl"
-                                                            size={isMobile ? 'md' : 'lg'}
+                                                            size={isMobile ? 38 : 42}
                                                             color="pink"
+                                                            style={{ border: isDark ? '2px solid rgba(230, 73, 128, 0.4)' : '2px solid rgba(230, 73, 128, 0.2)' }}
                                                         >
                                                             {isUserDeleted ? '?' : (otherUser?.displayName?.[0] || otherUser?.username?.[0]?.toUpperCase())}
                                                         </Avatar>
@@ -1622,25 +1885,25 @@ const Chat = () => {
                                                     <Avatar
                                                         src={isUserDeleted ? null : otherUser?.profilePic}
                                                         radius="xl"
-                                                        size={isMobile ? 'md' : 'lg'}
+                                                        size={isMobile ? 38 : 42}
                                                         color="pink"
                                                     >
                                                         {isUserDeleted ? '?' : (otherUser?.displayName?.[0] || otherUser?.username?.[0]?.toUpperCase())}
                                                     </Avatar>
                                                 )}
-                                                <Stack gap={0} style={{ minWidth: 0 }}>
+                                                <Stack gap={1} style={{ minWidth: 0, flex: 1 }}>
                                                     <Text
                                                         fw={600}
                                                         size="sm"
                                                         truncate
-                                                        style={{ lineHeight: 1.2, maxWidth: isMobile ? '120px' : '200px' }}
+                                                        style={{ lineHeight: 1.25 }}
                                                     >
                                                         {isUserDeleted ? 'Deleted User' : (otherUser?.displayName || otherUser?.username)}
                                                     </Text>
                                                     {!isUserDeleted && (
-                                                        <Text size="xs" color={otherUser?.isOnline ? "green" : "dimmed"} fw={otherUser?.isOnline ? 500 : 400}>
+                                                        <Text size="11px" color={otherUser?.isOnline ? "green" : "dimmed"} fw={otherUser?.isOnline ? 600 : 400}>
                                                             {otherUser?.isOnline ? (
-                                                                "Online"
+                                                                "Active now"
                                                             ) : otherUser?.lastSeen ? (
                                                                 `Last seen ${dayjs(otherUser.lastSeen).fromNow()}`
                                                             ) : (
@@ -1651,13 +1914,21 @@ const Chat = () => {
                                                 </Stack>
                                             </Group>
 
-                                            <Group gap="xs">
-                                                <ActionIcon variant="subtle" color="gray" disabled>
-                                                    <IconPhone size={20} />
-                                                </ActionIcon>
-                                                <ActionIcon variant="subtle" color="gray" disabled>
-                                                    <IconVideo size={20} />
-                                                </ActionIcon>
+                                            <Group gap="xs" wrap="nowrap">
+                                                {!isMobile && (
+                                                    <>
+                                                        <Tooltip label="Voice calls coming soon" withArrow>
+                                                            <ActionIcon variant="subtle" color="gray" size="md" radius="xl" disabled style={{ opacity: 0.45 }}>
+                                                                <IconPhone size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                        <Tooltip label="Video calls coming soon" withArrow>
+                                                            <ActionIcon variant="subtle" color="gray" size="md" radius="xl" disabled style={{ opacity: 0.45 }}>
+                                                                <IconVideo size={18} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </>
+                                                )}
 
                                                 <Menu shadow="lg" width={250} position="bottom-end" withinPortal transitionProps={{ duration: 150, transition: 'pop' }}>
                                                     <Menu.Target>
@@ -1723,7 +1994,7 @@ const Chat = () => {
                                     {/* Messages Scroll Area - Virtualized */}
                                     <Box
                                         flex={1}
-                                        p={{ base: 'sm', md: 'md' }}
+                                        p={{ base: '8px 4px', md: 'md' }}
                                         style={{
                                             backgroundColor: isDark
                                                 ? (activeConversation?.theme?.startsWith('custom:')
@@ -1742,7 +2013,8 @@ const Chat = () => {
                                             backgroundSize: '100% 100%',
                                             backgroundAttachment: 'fixed',
                                             overflow: 'hidden',
-                                            position: 'relative'
+                                            position: 'relative',
+                                            width: '100%'
                                         }}
                                     >
                                         <Virtuoso
@@ -1753,30 +2025,54 @@ const Chat = () => {
                                             followOutput="auto"
                                             itemContent={(index, msg) => {
                                                 const isOwn = msg.sender?._id === user._id;
-                                                const showAvatar = !isOwn && (index === messages.length - 1 || messages[index + 1]?.sender?._id !== msg.sender?._id);
+                                                const prevMsg = messages[index - 1];
+                                                const nextMsg = messages[index + 1];
 
-                                                const previousMsg = messages[index - 1];
-                                                const showDateSeparator = !previousMsg || !isSameDay(previousMsg.createdAt, msg.createdAt);
+                                                // Intelligent burst grouping logic: same sender, same calendar day, sent within 5 mins
+                                                const isSameSenderAsPrev = prevMsg &&
+                                                    prevMsg.sender?._id === msg.sender?._id &&
+                                                    isSameDay(prevMsg.createdAt, msg.createdAt) &&
+                                                    (new Date(msg.createdAt) - new Date(prevMsg.createdAt) < 5 * 60 * 1000);
+
+                                                const isSameSenderAsNext = nextMsg &&
+                                                    nextMsg.sender?._id === msg.sender?._id &&
+                                                    isSameDay(nextMsg.createdAt, msg.createdAt) &&
+                                                    (new Date(nextMsg.createdAt) - new Date(msg.createdAt) < 5 * 60 * 1000);
+
+                                                const isFirstInGroup = !isSameSenderAsPrev;
+                                                const isLastInGroup = !isSameSenderAsNext;
+                                                const showAvatar = !isOwn && isLastInGroup;
+
+                                                const showDateSeparator = !prevMsg || !isSameDay(prevMsg.createdAt, msg.createdAt);
                                                 const dateLabel = showDateSeparator ? formatDateLabel(msg.createdAt) : '';
 
                                                 return (
                                                     <motion.div
-                                                        initial={{ opacity: 0, y: 10 }}
+                                                        initial={{ opacity: 0, y: 8 }}
                                                         animate={{ opacity: 1, y: 0 }}
-                                                        transition={{ duration: 0.3 }}
-                                                        style={{ paddingBottom: '2px' }}
+                                                        transition={{ duration: 0.2 }}
                                                     >
                                                         {showDateSeparator && (
-                                                            <Center pb="sm" pt={index === 0 ? "xs" : "lg"}>
-                                                                <Badge
-                                                                    variant={isDark ? "filled" : "light"}
-                                                                    color="gray"
-                                                                    size="sm"
-                                                                    bg={isDark ? 'var(--mantine-color-dark-6)' : 'rgba(255, 255, 255, 0.6)'}
-                                                                    style={{ backdropFilter: 'blur(4px)' }}
+                                                            <Center pb={12} pt={index === 0 ? 22 : 16}>
+                                                                <Box
+                                                                    style={{
+                                                                        background: isDark ? 'rgba(24, 25, 33, 0.78)' : 'rgba(255, 255, 255, 0.85)',
+                                                                        backdropFilter: 'blur(10px)',
+                                                                        WebkitBackdropFilter: 'blur(10px)',
+                                                                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                                                        borderRadius: '20px',
+                                                                        padding: '3px 14px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 500,
+                                                                        letterSpacing: '0.02em',
+                                                                        color: isDark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.6)',
+                                                                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+                                                                        userSelect: 'none',
+                                                                        textTransform: 'none'
+                                                                    }}
                                                                 >
                                                                     {dateLabel}
-                                                                </Badge>
+                                                                </Box>
                                                             </Center>
                                                         )}
                                                         <MessageItem
@@ -1784,7 +2080,10 @@ const Chat = () => {
                                                             message={msg}
                                                             isOwn={isOwn}
                                                             isDark={isDark}
+                                                            isFirstInGroup={isFirstInGroup}
+                                                            isLastInGroup={isLastInGroup}
                                                             showAvatar={showAvatar}
+                                                            activeTheme={activeConversation?.theme}
                                                             onDelete={() => promptDeleteMessage(msg._id)}
                                                             onReply={() => handleReplyMessage(msg)}
                                                             onReaction={(emoji) => handleReaction(msg._id, emoji)}
@@ -1828,8 +2127,10 @@ const Chat = () => {
 
                                     {/* Input Area */}
                                     <Box style={{
-                                        borderTop: '1px solid var(--mantine-color-default-border)',
-                                        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'white',
+                                        borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                        backgroundColor: isDark ? 'rgba(15, 14, 23, 0.94)' : 'rgba(255, 255, 255, 0.95)',
+                                        backdropFilter: 'blur(16px)',
+                                        WebkitBackdropFilter: 'blur(16px)',
                                         flexShrink: 0
                                     }}>
                                         {/* Typing Indicators */}
@@ -1850,23 +2151,42 @@ const Chat = () => {
                                         </AnimatePresence>
 
                                         {replyingTo && (
-                                            <Group justify="space-between" p="xs" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)', borderLeft: '4px solid var(--mantine-color-pink-filled)' }}>
-                                                <Box>
+                                            <Group justify="space-between" px="md" py="xs" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)', borderLeft: '4px solid #e64980' }}>
+                                                <Box style={{ minWidth: 0, flex: 1 }}>
                                                     <Text size="xs" c="pink" fw={700}>Replying to {replyingTo.sender._id === user._id ? 'Yourself' : replyingTo.sender.username}</Text>
                                                     <Text size="sm" lineClamp={1} c="dimmed">{replyingTo.text}</Text>
                                                 </Box>
-                                                <ActionIcon variant="subtle" color="gray" onClick={cancelReply}>
-                                                    <IconX size={18} />
+                                                <ActionIcon variant="subtle" color="gray" size="sm" radius="xl" onClick={cancelReply}>
+                                                    <IconX size={16} />
                                                 </ActionIcon>
                                             </Group>
                                         )}
-                                        <Box p={{ base: 'xs', md: 'sm' }} style={{ flex: 1, minWidth: 0 }}>
+                                        <Box p={{ base: '6px 8px', md: '10px 16px' }} style={{ flex: 1, minWidth: 0, width: '100%' }}>
                                             <form onSubmit={handleSendMessage}>
-                                                <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                                                <Box
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        width: '100%',
+                                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)',
+                                                        border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
+                                                        borderRadius: '26px',
+                                                        padding: '4px 6px 4px 8px',
+                                                        transition: 'border-color 0.2s, box-shadow 0.2s'
+                                                    }}
+                                                >
                                                     <Popover opened={showEmojiPicker} onChange={setShowEmojiPicker} position="top-start" withArrow shadow="md">
                                                         <Popover.Target>
-                                                            <ActionIcon variant="subtle" color="gray" size={isMobile ? 'md' : 'lg'} radius="xl" onClick={() => setShowEmojiPicker((o) => !o)}>
-                                                                <IconMoodSmile size={isMobile ? 20 : 24} />
+                                                            <ActionIcon
+                                                                variant="subtle"
+                                                                color="gray"
+                                                                size={isMobile ? 'md' : 'lg'}
+                                                                radius="xl"
+                                                                onClick={() => setShowEmojiPicker((o) => !o)}
+                                                                style={{ flexShrink: 0 }}
+                                                            >
+                                                                <IconMoodSmile size={isMobile ? 20 : 22} />
                                                             </ActionIcon>
                                                         </Popover.Target>
                                                         <Popover.Dropdown p={0}>
@@ -1880,34 +2200,41 @@ const Chat = () => {
                                                         placeholder={isMessagingDisabled ? "Messaging is disabled" : "Type a message..."}
                                                         value={newMessage}
                                                         onChange={handleInputChange}
-                                                        radius="xl"
-                                                        size={isMobile ? 'sm' : 'md'}
                                                         disabled={isMessagingDisabled || isSending}
+                                                        variant="unstyled"
                                                         style={{ flex: 1 }}
                                                         styles={{
                                                             input: {
-                                                                backgroundColor: isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)',
+                                                                backgroundColor: 'transparent',
                                                                 border: 'none',
-                                                                transition: 'none',
-                                                                fontSize: isMobile ? '14px' : '16px',
+                                                                fontSize: isMobile ? '14px' : '15px',
                                                                 lineHeight: 1.4,
-                                                                padding: isMobile ? '8px 16px' : '12px 20px'
+                                                                padding: '4px 8px',
+                                                                color: isDark ? '#ffffff' : '#1f2937'
                                                             }
                                                         }}
-                                                        rightSection={
-                                                            <ActionIcon
-                                                                variant="filled"
-                                                                color="pink"
-                                                                size={isMobile ? 'md' : 'lg'}
-                                                                radius="xl"
-                                                                type="submit"
-                                                                disabled={isMessagingDisabled || isSending || !newMessage.trim()}
-                                                                loading={isSending}
-                                                            >
-                                                                {!isSending && <IconSend size={isMobile ? 18 : 20} />}
-                                                            </ActionIcon>
-                                                        }
                                                     />
+
+                                                    <ActionIcon
+                                                        variant="filled"
+                                                        size={isMobile ? 'md' : 'lg'}
+                                                        radius="xl"
+                                                        type="submit"
+                                                        disabled={isMessagingDisabled || isSending || !newMessage.trim()}
+                                                        loading={isSending}
+                                                        style={{
+                                                            flexShrink: 0,
+                                                            background: newMessage.trim()
+                                                                ? 'linear-gradient(135deg, #e64980 0%, #d6336c 100%)'
+                                                                : (isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'),
+                                                            boxShadow: newMessage.trim() ? '0 2px 8px rgba(230, 73, 128, 0.35)' : 'none',
+                                                            border: 'none',
+                                                            transition: 'all 0.2s ease',
+                                                            cursor: newMessage.trim() ? 'pointer' : 'default'
+                                                        }}
+                                                    >
+                                                        {!isSending && <IconSend size={isMobile ? 16 : 18} />}
+                                                    </ActionIcon>
                                                 </Box>
                                             </form>
                                         </Box>
@@ -1931,7 +2258,7 @@ const Chat = () => {
                     )}
                 </Box >
             </Paper>
-        </Container>
+        </Box>
     );
 };
 

@@ -16,6 +16,12 @@
     }
 }
 
+/* Global mobile horizontal edge cut-off prevention */
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
 /* Avatar Overrides */
 .mantine-Avatar-root {
     width: var(--avatar-size) !important;
@@ -98,6 +104,14 @@
 [data-mantine-color-scheme="light"] .mantine-SegmentedControl-label[data-active] {
     color: #0f172a !important;
     font-weight: 700 !important;
+}
+
+/* Profile Page underline tabs.
+   !important beats the inline color/border set via the styles prop. */
+.profile-tabs .mantine-Tabs-tab[data-active] {
+    color: var(--mantine-color-text) !important;
+    border-bottom-color: var(--mantine-color-text) !important;
+    background-color: transparent !important;
 }
 
 /* Explore Page Tabs & Search Input */

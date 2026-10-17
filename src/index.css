@@ -45,6 +45,43 @@
     z-index: 1;
 }
 
+/* Clean Minimalist Profile UI */
+.profile-cover-action-btn {
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(8px);
+    border: none !important;
+    color: #ffffff !important;
+    transition: all 0.2s ease;
+}
+
+.profile-cover-action-btn:hover {
+    background: rgba(0, 0, 0, 0.7) !important;
+    transform: scale(1.05);
+}
+
+.profile-action-btn {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.profile-action-btn:hover {
+    background: rgba(255, 255, 255, 0.14) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-mantine-color-scheme="light"] .profile-action-btn {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #0f172a !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-mantine-color-scheme="light"] .profile-action-btn:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+
 /* TipTap Writing Studio Textarea & Typography Enhancements */
 .tiptap {
     outline: none;
@@ -60,6 +97,8 @@
         font-size: 1rem;
         line-height: 1.6;
     }
+}
+
 .tiptap p {
     margin-top: 0;
     margin-bottom: 0.35em;
@@ -141,4 +180,4 @@
 .tiptap ::selection {
     background: rgba(51, 154, 240, 0.28);
 }
-
+

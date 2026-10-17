@@ -704,6 +704,9 @@ const PostForm = ({
                     zIndex: zenMode ? 9999 : 'auto',
                     backgroundColor: zenMode ? (isDark ? '#090a0f' : '#f8f9fa') : 'transparent',
                     overflowY: zenMode ? 'auto' : 'visible',
+                    overflowX: 'hidden',
+                    width: '100%',
+                    maxWidth: '100%',
                     padding: zenMode ? '2rem 1rem' : 0,
                     transition: 'all 0.3s ease'
                 }}
@@ -727,7 +730,7 @@ const PostForm = ({
                 />
 
                 <Paper
-                    p={{ base: 8, sm: 'xl' }}
+                    p={{ base: 10, sm: 'xl' }}
                     radius={{ base: '12px', sm: '24px' }}
                     withBorder
                     style={{
@@ -735,6 +738,8 @@ const PostForm = ({
                         zIndex: 1,
                         maxWidth: '860px',
                         width: '100%',
+                        boxSizing: 'border-box',
+                        overflowX: 'hidden',
                         margin: '0 auto',
                         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
                         backgroundColor: isDark ? 'rgba(22, 23, 28, 0.75)' : 'rgba(255, 255, 255, 0.88)',
@@ -746,8 +751,8 @@ const PostForm = ({
                 >
                     <Stack gap={{ base: 'sm', sm: 'lg' }}>
                         {/* 2026 Creative Studio Top Navigation Bar */}
-                        <Group justify="space-between" align="center" wrap="wrap" gap={{ base: 8, sm: 'md' }}>
-                            <Group gap="xs" align="center">
+                        <Group justify="space-between" align="center" wrap="wrap" gap={{ base: 10, sm: 'md' }} w="100%">
+                            <Group gap="xs" align="center" style={{ flex: '1 1 auto', minWidth: 0 }}>
                                 <Title
                                     order={3}
                                     fw={900}
@@ -777,7 +782,7 @@ const PostForm = ({
                             </Group>
 
                             {/* Studio Action Tools Bar */}
-                            <Group gap={6} align="center" wrap="nowrap">
+                            <Group gap={6} align="center" wrap="nowrap" style={{ flexShrink: 0 }}>
                                 <SegmentedControl
                                     size="xs"
                                     radius="xl"
@@ -961,7 +966,7 @@ const PostForm = ({
                                         />
                                     )}
 
-                                    <RichTextEditor editor={editor} variant="subtle" style={{ position: 'relative', zIndex: 1 }}>
+                                    <RichTextEditor editor={editor} variant="subtle" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden' }}>
                                         {/* Pro Studio Unified Toolbar */}
                                         <Collapse in={showToolbar}>
                                             <RichTextEditor.Toolbar
@@ -975,9 +980,11 @@ const PostForm = ({
                                                     justifyContent: 'flex-start',
                                                     gap: '6px',
                                                     overflowX: 'auto',
+                                                    WebkitOverflowScrolling: 'touch',
                                                     scrollbarWidth: 'none',
                                                     flexWrap: 'nowrap',
                                                     width: '100%',
+                                                    maxWidth: '100%',
                                                     boxSizing: 'border-box'
                                                 }}
                                             >
@@ -1554,12 +1561,13 @@ const PostForm = ({
                                     size="sm"
                                     radius="md"
                                     data={[
-                                        { label: <Group gap={4} justify="center"><IconAlignLeft size={14} /> Normal</Group>, value: 'Standard' },
-                                        { label: <Group gap={4} justify="center"><IconQuote size={14} /> Poetry</Group>, value: 'Poetry' },
-                                        { label: <Group gap={4} justify="center"><IconFeather size={14} /> Shayari</Group>, value: 'Shayari' },
+                                        { label: <Group gap={4} justify="center" wrap="nowrap"><IconAlignLeft size={14} /> Normal</Group>, value: 'Standard' },
+                                        { label: <Group gap={4} justify="center" wrap="nowrap"><IconQuote size={14} /> Poetry</Group>, value: 'Poetry' },
+                                        { label: <Group gap={4} justify="center" wrap="nowrap"><IconFeather size={14} /> Shayari</Group>, value: 'Shayari' },
                                     ]}
                                     styles={{
-                                        root: { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.04)' },
+                                        root: { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.04)', maxWidth: '100%', overflow: 'hidden' },
+                                        label: { padding: '4px 6px', fontSize: '12px' },
                                         indicator: {
                                             background: 'linear-gradient(45deg, #4dabf7, #da77f2)',
                                             boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
@@ -1775,7 +1783,7 @@ const PostForm = ({
                         {/* Media Section */}
                         <Box>
                             <Text fw={700} mb={6} c="dimmed" size="xs" tt="uppercase" ls={1}>Attach Media</Text>
-                            <Group grow gap="sm">
+                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
                                 <FileInput
                                     placeholder="Upload Image"
                                     leftSection={<Upload size={14} />}
@@ -1802,7 +1810,7 @@ const PostForm = ({
                                         form.setFieldValue('image', null);
                                     }}
                                 />
-                            </Group>
+                            </SimpleGrid>
                         </Box>
 
                         {/* Image Preview */}

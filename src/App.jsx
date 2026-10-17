@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, Suspense, lazy } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Container, LoadingOverlay } from '@mantine/core';
+import { Container, LoadingOverlay, Box } from '@mantine/core';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import PageNavigation from './components/PageNavigation';
@@ -32,6 +32,7 @@ const PageTransition = ({ children }) => (
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
     transition={{ duration: 0.2 }}
+    style={{ height: '100%', width: '100%', maxWidth: '100%', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
   >
     <Suspense fallback={<LoadingOverlay visible={true} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} loaderProps={{ color: 'pink', type: 'bars' }} />}>
       {children}
@@ -142,6 +143,60 @@ const AnimatedRoutes = () => {
   );
 };
 
+const AppContent = () => {
+  const location = useLocation();
+  const isChat = location.pathname.startsWith('/chat');
+
+  return (
+    <Box
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100dvh',
+        height: isChat ? '100dvh' : 'auto',
+        overflowY: isChat ? 'hidden' : 'visible',
+        overflowX: 'hidden',
+        width: '100%',
+        maxWidth: '100vw'
+      }}
+    >
+      <Navbar />
+      {isChat ? (
+        <Box
+          component="main"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            maxWidth: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            paddingBottom: 'calc(58px + env(safe-area-inset-bottom, 0px))',
+            overflow: 'hidden'
+          }}
+        >
+          <AnimatedRoutes />
+        </Box>
+      ) : (
+        <Container
+          px={{ base: 6, sm: 'md' }}
+          mt={{ base: 'xs', sm: 'md' }}
+          pb={80}
+          size="md"
+          style={{
+            width: '100%',
+            overflowX: 'hidden',
+            boxSizing: 'border-box'
+          }}
+        >
+          <AnimatedRoutes />
+        </Container>
+      )}
+      <PageNavigation />
+    </Box>
+  );
+};
+
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
 
@@ -153,11 +208,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <Router>
-          <Navbar />
-          <Container px={{ base: 6, sm: 'md' }} mt={{ base: 'xs', sm: 'md' }} pb={80} size="md">
-            <AnimatedRoutes />
-          </Container>
-          <PageNavigation />
+          <AppContent />
         </Router>
       </ErrorBoundary>
     </QueryClientProvider>

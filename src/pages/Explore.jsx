@@ -145,7 +145,7 @@ const Explore = () => {
     }, [dateRange]);
 
     return (
-        <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+        <Box style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', minWidth: 0, overflowX: 'hidden' }}>
             {/* Unified Search Header */}
             <Box mb="md">
                 <TextInput
@@ -172,8 +172,8 @@ const Explore = () => {
             </Box>
 
             {/* Main Content Layout with Sticky Trending Sidebar */}
-            <div style={{ display: 'flex', gap: '24px', flexDirection: 'row', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+            <Box style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', width: '100%', minWidth: 0, maxWidth: '100%' }}>
+                <Box style={{ flex: 1, minWidth: 0, maxWidth: '100%' }}>
                     <Tabs
                         value={activeTab}
                         onChange={setActiveTab}
@@ -187,7 +187,7 @@ const Explore = () => {
                         <Tabs.Panel value="posts">
                             {/* Contextual Date Filter Chips for Posts */}
                             <Box mb="md">
-                                <Group gap={8} wrap="nowrap" style={{ overflowX: 'auto', paddingBottom: 4 }}>
+                                <Group gap={8} wrap="nowrap" style={{ overflowX: 'auto', paddingBottom: 4, maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
                                     <Button
                                         size="xs"
                                         radius="xl"
@@ -364,14 +364,17 @@ const Explore = () => {
                             )}
                         </Tabs.Panel>
                     </Tabs>
-                </div>
+                </Box>
                 {hasTrending && (
-                    <div style={{ width: '320px', flexShrink: 0, position: 'sticky', top: 20, height: 'fit-content' }} className="mantine-visible-from-md">
+                    <Box
+                        visibleFrom="md"
+                        style={{ width: '320px', flexShrink: 0, position: 'sticky', top: 20, height: 'fit-content' }}
+                    >
                         <TrendingPosts posts={trendingPosts} />
-                    </div>
+                    </Box>
                 )}
-            </div>
-        </div>
+            </Box>
+        </Box>
     );
 };
 

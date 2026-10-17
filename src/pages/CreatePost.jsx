@@ -75,7 +75,7 @@ const CreatePost = () => {
     };
 
     return (
-        <Box w="100%" px={0} py={{ base: 4, sm: 'md' }}>
+        <Box w="100%" px={0} py={{ base: 4, sm: 'md' }} style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
             <PostForm
                 initialData={initialData}
                 onSubmit={handleSubmit}
