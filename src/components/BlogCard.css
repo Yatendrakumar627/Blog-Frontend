@@ -553,21 +553,6 @@
     color: #f43f5e !important;
 }
 
-/* Subtle dock divider */
-.blog-dock-divider {
-    width: 1px;
-    height: 14px;
-    margin: 0 4px;
-    border: none !important;
-}
-
-[data-mantine-color-scheme="dark"] .blog-dock-divider {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-[data-mantine-color-scheme="light"] .blog-dock-divider {
-    background: rgba(0, 0, 0, 0.08);
-}
 
 /* Reaction Menu Popover Dropdown */
 .blog-reaction-dropdown {

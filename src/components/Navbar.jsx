@@ -1,7 +1,7 @@
 import { Group, Button, Title, Box, ActionIcon, useMantineColorScheme, useComputedColorScheme, Indicator, Tooltip, Avatar, Text, Menu, UnstyledButton, Badge } from '@mantine/core';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { IconSun, IconMoon, IconBell, IconBellRinging, IconWriting, IconHome, IconUser, IconLogout, IconLogin, IconUserPlus, IconSettings, IconChevronDown, IconCrown, IconShield, IconMessage } from '@tabler/icons-react';
+import { IconSun, IconMoon, IconBell, IconBellRinging, IconWriting, IconHome, IconUser, IconLogout, IconLogin, IconUserPlus, IconSettings, IconCrown, IconShield, IconMessage } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import NotificationDropdown from './NotificationDropdown';
@@ -26,17 +26,9 @@ const Navbar = () => {
     return (
         <Box
             component="header"
+            className="app-navbar-sticky"
             py="sm"
             px={{ base: 'md', md: 'xl' }}
-            style={{
-                borderBottom: '1px solid var(--mantine-color-default-border)',
-                backgroundColor: 'rgba(var(--mantine-color-body-rgb), 0.8)', // More subtle background for glass effect
-                backdropFilter: 'blur(16px) saturate(180%)', // Stronger blur
-                position: 'sticky',
-                top: 0,
-                zIndex: 2000,
-                transition: 'all 0.3s ease'
-            }}
         >
             <Group justify="space-between" align="center" wrap="nowrap" h="100%">
                 <motion.div
@@ -187,11 +179,6 @@ const Navbar = () => {
                                                 {user.username}
                                             </Text>
                                         </Box>
-                                        <IconChevronDown
-                                            size={16}
-                                            color="var(--mantine-color-dimmed)"
-                                            style={{ marginLeft: -4 }}
-                                        />
                                     </Group>
                                 </UnstyledButton>
                             </Menu.Target>

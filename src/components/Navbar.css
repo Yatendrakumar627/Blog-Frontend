@@ -1,3 +1,25 @@
+/* Sticky Frosted Glass Navbar Header */
+.app-navbar-sticky {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2000 !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+[data-mantine-color-scheme="dark"] .app-navbar-sticky {
+    background-color: rgba(18, 19, 26, 0.88) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-mantine-color-scheme="light"] .app-navbar-sticky {
+    background-color: rgba(255, 255, 255, 0.90) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
 /* Enhanced Navbar Profile Styles */
 .menu-chevron {
     transition: transform 0.2s ease;

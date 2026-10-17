@@ -155,7 +155,7 @@ const AppContent = () => {
         minHeight: '100dvh',
         height: isChat ? '100dvh' : 'auto',
         overflowY: isChat ? 'hidden' : 'visible',
-        overflowX: 'hidden',
+        overflowX: isChat ? 'hidden' : 'clip',
         width: '100%',
         maxWidth: '100vw'
       }}

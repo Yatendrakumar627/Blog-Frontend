@@ -1111,8 +1111,6 @@ const BlogCard = memo(({ blog }) => {
 
                                     {isAuthor && (
                                         <>
-                                            <div className="blog-dock-divider" />
-
                                             <Tooltip label="Edit Post" position="top" withArrow zIndex={10000} withinPortal>
                                                 <button
                                                     type="button"

@@ -16,9 +16,9 @@
     }
 }
 
-/* Global mobile horizontal edge cut-off prevention */
+/* Global mobile horizontal edge cut-off prevention without breaking position: sticky */
 html, body {
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
 }
 
