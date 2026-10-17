@@ -724,22 +724,12 @@ const BlogCard = memo(({ blog }) => {
                 </Modal>
 
                 <Card
-                    shadow="sm"
-                    p={{ base: 10, sm: 'md', md: 'lg' }}
+                    className="blog-card-root"
+                    p={{ base: 14, sm: 18, md: 20 }}
                     radius="lg"
                     withBorder
                     mb={{ base: 'sm', sm: 'md' }}
                     id={`blog-card-${displayBlog._id}`}
-                    style={{
-                        transition: 'all 0.25s ease',
-                        width: '100%',
-                        backgroundColor: isDark ? 'rgba(26, 27, 30, 0.95)' : '#ffffff',
-                        borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-                        '&:hover': {
-                            boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                            transform: 'translateY(-2px)'
-                        }
-                    }}
                 >
                     {isEditing ? (
                         <PostForm
@@ -756,312 +746,123 @@ const BlogCard = memo(({ blog }) => {
                         />
                     ) : (
                         <>
-                            {/* Header - Always outside for Poetry/Shayari */}
-                            {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? (
-                                <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
-                                    <motion.div
-                                        className="no-export"
-                                        whileHover={{ scale: 1.02 }}
-                                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                            {/* Header - Consolidated & Blended */}
+                            <Group justify="space-between" wrap="nowrap" mb="sm" className="no-export" p={0}>
+                                <motion.div
+                                    whileHover={{ scale: 1.01 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                                >
+                                    <UnstyledButton
+                                        onClick={() => { if (user) navigate(`/profile/${displayBlog.author?.username}`); else navigate('/login'); }}
+                                        className="blog-header-user-btn"
                                     >
-                                        <UnstyledButton
-                                            onClick={() => { if (user) navigate(`/profile/${displayBlog.author?.username}`); else navigate('/login'); }}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '12px',
-                                                cursor: 'pointer',
-                                                padding: '4px 8px',
-                                                borderRadius: '8px',
-                                                transition: 'background-color 0.2s ease',
-                                                '&:hover': {
-                                                    backgroundColor: 'var(--mantine-color-gray-1)'
-                                                }
-                                            }}
+                                        <Indicator
+                                            inline
+                                            size={10}
+                                            offset={2}
+                                            position="bottom-end"
+                                            color="teal"
+                                            withBorder
+                                            disabled={!displayBlog.author?.isOnline || displayBlog.isAnonymous}
+                                            processing={displayBlog.author?.isOnline && !displayBlog.isAnonymous}
                                         >
-                                            <Indicator
-                                                inline
-                                                size={10}
-                                                offset={2}
-                                                position="bottom-end"
-                                                color="green"
-                                                withBorder
-                                                disabled={!displayBlog.author?.isOnline || displayBlog.isAnonymous}
-                                                processing={displayBlog.author?.isOnline && !displayBlog.isAnonymous}
+                                            <Avatar
+                                                src={(!user || displayBlog.isAnonymous) ? null : displayBlog.author?.profilePic}
+                                                radius="xl"
+                                                size="sm"
+                                                className="blog-avatar-ring"
+                                                style={{
+                                                    border: '2px solid rgba(59, 130, 246, 0.45)',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+                                                }}
+                                            />
+                                        </Indicator>
+                                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                                            <Text
+                                                fw={600}
+                                                size="sm"
+                                                style={{
+                                                    color: 'var(--mantine-color-text)',
+                                                    lineHeight: 1.25,
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    letterSpacing: '-0.1px'
+                                                }}
                                             >
-                                                <Avatar
-                                                    src={(!user || displayBlog.isAnonymous) ? null : displayBlog.author?.profilePic}
-                                                    radius="xl"
-                                                    size="sm"
-                                                    style={{
-                                                        border: '2px solid var(--mantine-color-blue-6)',
-                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                                    }}
-                                                />
-                                            </Indicator>
-                                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                                                <Text
-                                                    fw={600}
-                                                    size="sm"
-                                                    style={{
-                                                        color: 'var(--mantine-color-text)',
-                                                        lineHeight: 1.2,
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis'
-                                                    }}
-                                                >
-                                                    {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
-                                                </Text>
-                                                <Text
-                                                    size="xs"
-                                                    c="dimmed"
-                                                    style={{
-                                                        fontSize: '11px',
-                                                        marginTop: '2px',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {dayjs(displayBlog.createdAt).fromNow()}
-                                                </Text>
-                                            </div>
-                                        </UnstyledButton>
-                                    </motion.div>
-                                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-                                        <Badge
-                                            className="no-export"
-                                            color="violet"
-                                            variant="light"
-                                            size="sm"
-                                            style={{
-                                                fontWeight: 600,
-                                                textTransform: 'none'
-                                            }}
-                                        >
-                                            {displayBlog.displayMode === 'Shayari' ? 'Shayari' : 'Poetry'}
-                                        </Badge>
-                                        <Badge
-                                            className="no-export"
-                                            color="pink"
-                                            variant="light"
-                                            size="sm"
-                                            style={{
-                                                fontWeight: 600,
-                                                textTransform: 'none',
-                                                letterSpacing: '0.5px'
-                                            }}
-                                        >
-                                            {displayBlog.mood}
-                                        </Badge>
-                                        {!isAuthor && displayBlog.author?.privacySettings?.allowMessages !== false && (
-                                            <motion.div
-                                                className="no-export"
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                                                {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
+                                            </Text>
+                                            <Text
+                                                size="xs"
+                                                c="dimmed"
+                                                style={{
+                                                    fontSize: '11px',
+                                                    marginTop: '2px',
+                                                    whiteSpace: 'nowrap'
+                                                }}
                                             >
-                                                <Tooltip label="Message Author" position="bottom" withArrow zIndex={10000} withinPortal>
-                                                    <ActionIcon
-                                                        variant="transparent"
-                                                        onClick={handleMessageClick}
-                                                        size="lg"
-                                                        style={{
-                                                            color: 'var(--mantine-color-pink-6)',
-                                                            '&:hover': {
-                                                                backgroundColor: 'var(--mantine-color-pink-0)'
-                                                            }
-                                                        }}
-                                                    >
-                                                        <MessageSquare size={20} />
-                                                    </ActionIcon>
-                                                </Tooltip>
-                                            </motion.div>
-                                        )}
-                                        <motion.div
-                                            className="no-export"
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                        >
-                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow zIndex={10000} withinPortal>
-                                                <ActionIcon
-                                                    variant="transparent"
-                                                    color={isBookmarked ? 'yellow' : 'gray'}
-                                                    onClick={handleBookmark}
-                                                    size="lg"
-                                                    style={{
-                                                        '&:hover': {
-                                                            color: isBookmarked ? 'var(--mantine-color-yellow-7)' : 'var(--mantine-color-gray-7)',
-                                                            backgroundColor: isBookmarked ? 'var(--mantine-color-yellow-0)' : 'var(--mantine-color-gray-0)'
-                                                        }
-                                                    }}
-                                                >
-                                                    <motion.div
-                                                        animate={{ scale: isBookmarked ? [1, 1.2, 1] : 1 }}
-                                                        transition={{ duration: 0.3 }}
-                                                    >
-                                                        <Bookmark fill={isBookmarked ? 'currentColor' : 'none'} size={20} />
-                                                    </motion.div>
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        </motion.div>
-                                    </Group>
-                                </Group>
-                            ) : (
-                                <Group justify="space-between" wrap="nowrap" mb="sm" p={0}>
-                                    <motion.div
-                                        className="no-export"
-                                        whileHover={{ scale: 1.02 }}
-                                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                    >
-                                        <UnstyledButton
-                                            onClick={() => { if (user) navigate(`/profile/${displayBlog.author?.username}`); else navigate('/login'); }}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '12px',
-                                                cursor: 'pointer',
-                                                padding: '4px 8px',
-                                                borderRadius: '8px',
-                                                transition: 'background-color 0.2s ease',
-                                                '&:hover': {
-                                                    backgroundColor: 'var(--mantine-color-gray-1)'
-                                                }
-                                            }}
-                                        >
-                                            <Indicator
-                                                inline
-                                                size={12}
-                                                offset={4}
-                                                position="bottom-end"
-                                                color="green"
-                                                withBorder
-                                                disabled={!displayBlog.author?.isOnline || displayBlog.isAnonymous}
-                                                processing={displayBlog.author?.isOnline && !displayBlog.isAnonymous}
-                                            >
-                                                <Avatar
-                                                    src={(!user || displayBlog.isAnonymous) ? null : displayBlog.author?.profilePic}
-                                                    radius="xl"
-                                                    style={{
-                                                        border: '2px solid var(--mantine-color-blue-6)',
-                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                                    }}
-                                                />
-                                            </Indicator>
-                                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                                                <Text
-                                                    fw={600}
-                                                    style={{
-                                                        color: 'var(--mantine-color-text)',
-                                                        lineHeight: 1.2,
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis'
-                                                    }}
-                                                >
-                                                    {(!user || displayBlog.isAnonymous) ? 'Anonymous' : getDisplayName(displayBlog.author)}
-                                                </Text>
-                                                <Text
-                                                    size="xs"
-                                                    c="dimmed"
-                                                    style={{
-                                                        fontSize: '11px',
-                                                        marginTop: '2px',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    {dayjs(displayBlog.createdAt).fromNow()}
-                                                </Text>
-                                            </div>
-                                        </UnstyledButton>
-                                    </motion.div>
-                                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-                                        <Badge
-                                            className="no-export"
-                                            color="pink"
-                                            variant="light"
-                                            size="sm"
-                                            style={{
-                                                fontWeight: 600,
-                                                textTransform: 'none',
-                                                letterSpacing: '0.5px'
-                                            }}
-                                        >
-                                            {displayBlog.mood}
-                                        </Badge>
-                                        {!isAuthor && displayBlog.author?.privacySettings?.allowMessages !== false && (
-                                            <motion.div
-                                                className="no-export"
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                            >
-                                                <Tooltip label="Message Author" position="bottom" withArrow zIndex={10000} withinPortal>
-                                                    <ActionIcon
-                                                        variant="transparent"
-                                                        onClick={handleMessageClick}
-                                                        size="lg"
-                                                        style={{
-                                                            color: 'var(--mantine-color-pink-6)',
-                                                            '&:hover': {
-                                                                backgroundColor: 'var(--mantine-color-pink-0)'
-                                                            }
-                                                        }}
-                                                    >
-                                                        <MessageSquare size={20} />
-                                                    </ActionIcon>
-                                                </Tooltip>
-                                            </motion.div>
-                                        )}
-                                        <motion.div
-                                            className="no-export"
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                                        >
-                                            <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow zIndex={10000} withinPortal>
-                                                <ActionIcon
-                                                    variant="transparent"
-                                                    color={isBookmarked ? 'yellow' : 'gray'}
-                                                    onClick={handleBookmark}
-                                                    size="lg"
-                                                    style={{
-                                                        '&:hover': {
-                                                            color: isBookmarked ? 'var(--mantine-color-yellow-7)' : 'var(--mantine-color-gray-7)',
-                                                            backgroundColor: isBookmarked ? 'var(--mantine-color-yellow-0)' : 'var(--mantine-color-gray-0)'
-                                                        }
-                                                    }}
-                                                >
-                                                    <motion.div
-                                                        animate={{ scale: isBookmarked ? [1, 1.2, 1] : 1 }}
-                                                        transition={{ duration: 0.3 }}
-                                                    >
-                                                        <Bookmark fill={isBookmarked ? 'currentColor' : 'none'} size={20} />
-                                                    </motion.div>
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        </motion.div>
-                                    </Group>
-                                </Group>
-                            )}
+                                                {dayjs(displayBlog.createdAt).fromNow()}
+                                            </Text>
+                                        </div>
+                                    </UnstyledButton>
+                                </motion.div>
 
-                            {/* Content */}
+                                <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
+                                    {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') && (
+                                        <div className="blog-pill-badge blog-mode-pill">
+                                            {displayBlog.displayMode === 'Shayari' ? 'Shayari' : 'Poetry'}
+                                        </div>
+                                    )}
+                                    {displayBlog.mood && (
+                                        <div className="blog-pill-badge blog-mood-pill">
+                                            <span className="blog-mood-dot" />
+                                            <span>{displayBlog.mood}</span>
+                                        </div>
+                                    )}
+                                    {!isAuthor && displayBlog.author?.privacySettings?.allowMessages !== false && (
+                                        <Tooltip label="Message Author" position="bottom" withArrow zIndex={10000} withinPortal>
+                                            <button
+                                                type="button"
+                                                className="blog-header-action-btn"
+                                                onClick={handleMessageClick}
+                                                aria-label="Message Author"
+                                            >
+                                                <MessageSquare size={17} />
+                                            </button>
+                                        </Tooltip>
+                                    )}
+                                    <Tooltip label={isBookmarked ? "Remove bookmark" : "Bookmark"} position="bottom" withArrow zIndex={10000} withinPortal>
+                                        <button
+                                            type="button"
+                                            className={`blog-header-action-btn ${isBookmarked ? 'bookmarked' : ''}`}
+                                            onClick={handleBookmark}
+                                            aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
+                                        >
+                                            <motion.div
+                                                animate={{ scale: isBookmarked ? [1, 1.25, 1] : 1 }}
+                                                transition={{ duration: 0.25 }}
+                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                <Bookmark fill={isBookmarked ? 'currentColor' : 'none'} size={17} />
+                                            </motion.div>
+                                        </button>
+                                    </Tooltip>
+                                </Group>
+                            </Group>
+
                             {/* Content */}
                             <div className="blog-post-content" style={{ fontSize: '14px', width: '100%' }}>
                                 {(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? (
-                                    <div style={{ 
-                                        position: 'relative', 
-                                        width: '100%', 
-                                        borderRadius: '12px', 
-                                        overflow: 'hidden',
-                                        aspectRatio: '3/4',
-                                        minHeight: '180px',
-                                        background: displayBlog.backgroundImage 
-                                            ? 'transparent' 
-                                            : (isDark 
-                                                ? 'linear-gradient(135deg, rgba(32, 34, 46, 0.95), rgba(18, 19, 26, 0.98))' 
-                                                : 'linear-gradient(135deg, #fdfbf7, #f5efe6)')
-                                    }}>
+                                    <div
+                                        className="blog-poetry-canvas"
+                                        style={{ 
+                                            background: displayBlog.backgroundImage 
+                                                ? 'transparent' 
+                                                : (isDark 
+                                                    ? 'linear-gradient(135deg, rgba(30, 32, 44, 0.95), rgba(16, 17, 24, 0.98))' 
+                                                    : 'linear-gradient(135deg, #fdfbf7, #f5efe6)')
+                                        }}
+                                    >
                                         {displayBlog.backgroundImage && (
                                             <img
                                                 src={displayBlog.backgroundImage}
@@ -1084,41 +885,31 @@ const BlogCard = memo(({ blog }) => {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                padding: 'clamp(0.3rem, 2vw, 1.2rem)',
+                                                padding: 'clamp(0.6rem, 2.5vw, 1.4rem)',
                                                 width: '100%',
                                                 height: '100%',
-                                                // Add a subtle gradient overlay for better text readability
                                                 background: isDark 
-                                                    ? 'radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 100%)'
+                                                    ? 'radial-gradient(circle, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.6) 100%)'
                                                     : 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.4) 100%)',
                                                 ...(displayBlog.displayMode === 'Poetry' ? {
                                                     fontFamily: "'Playfair Display', Georgia, serif",
                                                     textAlign: 'center',
-                                                    lineHeight: 1.4,
-                                                    fontSize: 'clamp(0.9rem, 3.2vw, 1.25rem)',
-                                                    textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',
-                                                    letterSpacing: '0.01em',
+                                                    lineHeight: 1.45,
+                                                    fontSize: 'clamp(0.95rem, 3.2vw, 1.25rem)',
+                                                    textShadow: isDark ? '0 2px 8px rgba(0,0,0,0.8)' : '0 1px 3px rgba(255,255,255,0.8)',
+                                                    letterSpacing: '0.015em',
                                                 } : {
                                                     fontFamily: "'Dancing Script', cursive",
                                                     textAlign: 'center',
-                                                    lineHeight: 1.35,
-                                                    fontSize: 'clamp(1.1rem, 3.8vw, 1.6rem)',
-                                                    textShadow: isDark ? '0 2px 6px rgba(0,0,0,0.7)' : '0 1px 3px rgba(255,255,255,0.8)',
+                                                    lineHeight: 1.4,
+                                                    fontSize: 'clamp(1.15rem, 3.8vw, 1.65rem)',
+                                                    textShadow: isDark ? '0 2px 8px rgba(0,0,0,0.8)' : '0 1px 3px rgba(255,255,255,0.8)',
                                                 })
                                             }}
                                         >
                                             {displayBlog.displayMode === 'Shayari' && (
-                                                <div style={{
-                                                    fontFamily: 'serif',
-                                                    fontSize: 'clamp(0.8rem, 4vw, 2.5rem)',
-                                                    position: 'absolute',
-                                                    top: '8px',
-                                                    left: '5px',
-                                                    color: 'rgba(74, 4, 4, 0.08)',
-                                                    lineHeight: 1,
-                                                    pointerEvents: 'none'
-                                                }}>
-                                                    "
+                                                <div className="blog-quote-glyph" style={{ top: '10px', left: '12px' }}>
+                                                    “
                                                 </div>
                                             )}
 
@@ -1127,8 +918,8 @@ const BlogCard = memo(({ blog }) => {
                                                 className="blog-content-display"
                                                 style={{
                                                     width: '100%',
-                                                    maxWidth: '90%',
-                                                    color: isDark ? 'rgba(255,255,255,0.9)' : '#2c3e50',
+                                                    maxWidth: '92%',
+                                                    color: isDark ? 'rgba(255,255,255,0.92)' : '#1e293b',
                                                     position: 'relative',
                                                     zIndex: 1,
                                                     margin: '0 auto',
@@ -1137,17 +928,8 @@ const BlogCard = memo(({ blog }) => {
                                             />
 
                                             {displayBlog.displayMode === 'Shayari' && (
-                                                <div style={{
-                                                    fontFamily: 'serif',
-                                                    fontSize: 'clamp(0.8rem, 4vw, 2.5rem)',
-                                                    position: 'absolute',
-                                                    bottom: '8px',
-                                                    right: '5px',
-                                                    color: 'rgba(74, 4, 4, 0.08)',
-                                                    lineHeight: 1,
-                                                    pointerEvents: 'none'
-                                                }}>
-                                                    "
+                                                <div className="blog-quote-glyph" style={{ bottom: '10px', right: '12px' }}>
+                                                    ”
                                                 </div>
                                             )}
                                         </div>
@@ -1158,7 +940,7 @@ const BlogCard = memo(({ blog }) => {
                                         style={{
                                             textAlign: 'justify',
                                             lineHeight: 1.6,
-                                            fontSize: '16px'
+                                            fontSize: '15.5px'
                                         }}
                                     />
                                 )}
@@ -1173,8 +955,8 @@ const BlogCard = memo(({ blog }) => {
                                             maxWidth: '100%',
                                             height: 'auto',
                                             display: 'block',
-                                            borderRadius: '8px',
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                                            borderRadius: '12px',
+                                            boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
                                         }}
                                     />
                                 </div>
@@ -1182,84 +964,48 @@ const BlogCard = memo(({ blog }) => {
 
                             {/* Clickable Tags */}
                             {displayBlog.tags && displayBlog.tags.length > 0 && (
-                                <Group gap={6} mt="xs" wrap="wrap">
+                                <Group gap={6} mt="xs" wrap="wrap" className="no-export">
                                     {displayBlog.tags.map((tag, index) => (
-                                        <Badge
+                                        <span
                                             key={index}
-                                            variant="light"
-                                            color="blue"
-                                            size="sm"
-                                            radius="xl"
-                                            style={{
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s ease',
-                                                textTransform: 'lowercase',
-                                            }}
+                                            className="blog-tag-badge"
                                             onClick={() => navigate(`/explore?search=${encodeURIComponent(tag)}`)}
                                         >
                                             #{tag}
-                                        </Badge>
+                                        </span>
                                     ))}
                                 </Group>
                             )}
 
-                            {/* Actions - Enhanced with animations */}
-                            <Group
-                                className="no-export"
-                                mt={(displayBlog.displayMode === 'Poetry' || displayBlog.displayMode === 'Shayari') ? 'sm' : 'md'}
-                                justify="space-between"
-                                align="center"
-                                wrap="nowrap"
-                                style={{
-                                    borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.06)',
-                                    paddingTop: '10px',
-                                }}
-                            >
-                                {/* Left: Engagement (Reactions + Comments) */}
-                                <Group gap="xs" wrap="nowrap">
+                            {/* Actions - Professional Blended UI with Buttons & Icons */}
+                            <div className="blog-actions-bar no-export">
+                                {/* Left: Engagement Dock (Reactions + Comments) */}
+                                <div className="blog-interactions-group">
                                     <Menu 
-                                        shadow="lg" 
+                                        shadow="xl" 
                                         trigger="hover" 
                                         opened={reactionMenuOpen}
                                         onChange={handleReactionMenuChange}
                                         openDelay={100} 
-                                        closeDelay={300} 
+                                        closeDelay={250} 
                                         position="top-start" 
                                         withArrow 
                                         withinPortal
                                     >
                                         <Menu.Target>
-                                            <UnstyledButton
+                                            <button
+                                                type="button"
                                                 onClick={handleLikeClick}
                                                 onTouchStart={handleTouchStart}
                                                 onTouchEnd={handleTouchEnd}
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '7px',
-                                                    padding: '6px 12px',
-                                                    height: '36px',
-                                                    borderRadius: '10px',
-                                                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                    backgroundColor: isLiked 
-                                                        ? (isDark ? 'rgba(230, 73, 128, 0.15)' : 'rgba(230, 73, 128, 0.08)')
-                                                        : (isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
-                                                    color: currentReaction 
-                                                        ? `var(--mantine-color-${currentReaction.color}-6)`
-                                                        : (isLiked ? 'var(--mantine-color-pink-6)' : 'var(--mantine-color-dimmed)'),
-                                                    border: isLiked 
-                                                        ? `1px solid ${isDark ? 'rgba(230, 73, 128, 0.3)' : 'rgba(230, 73, 128, 0.22)'}`
-                                                        : `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)'}`,
-                                                    cursor: 'pointer',
-                                                    userSelect: 'none',
-                                                    WebkitTapHighlightColor: 'transparent',
-                                                }}
+                                                className={`blog-action-pill ${isLiked ? 'is-liked' : ''}`}
+                                                aria-label="Like post"
                                             >
                                                 <motion.span
                                                     animate={{ scale: isLiked ? [1, 1.25, 1] : 1 }}
                                                     transition={{ duration: 0.25 }}
                                                     style={{
-                                                        fontSize: '18px',
+                                                        fontSize: '17px',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
@@ -1269,29 +1015,25 @@ const BlogCard = memo(({ blog }) => {
                                                     {currentReaction ? (
                                                         <span role="img" aria-label={currentReaction.label}>{currentReaction.icon}</span>
                                                     ) : (
-                                                        <Heart fill={isLiked ? 'currentColor' : 'none'} size={18} />
+                                                        <Heart
+                                                            fill={isLiked ? '#ff3366' : 'none'}
+                                                            color={isLiked ? '#ff3366' : 'currentColor'}
+                                                            size={17}
+                                                            style={{
+                                                                filter: isLiked ? 'drop-shadow(0 0 6px rgba(255, 51, 102, 0.6))' : 'none',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
+                                                        />
                                                     )}
                                                 </motion.span>
-                                                <Text size="sm" fw={600} style={{ lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {totalLikesCount}
-                                                </Text>
-                                            </UnstyledButton>
+                                                <span style={{ transition: 'color 0.2s ease' }}>{totalLikesCount}</span>
+                                            </button>
                                         </Menu.Target>
 
-                                        <Menu.Dropdown 
-                                            p={4} 
-                                            style={{ 
-                                                borderRadius: '28px',
-                                                backgroundColor: isDark ? '#1e1f24' : '#ffffff',
-                                                border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.08)',
-                                                boxShadow: isDark
-                                                    ? '0 12px 30px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.2)'
-                                                    : '0 12px 30px rgba(0, 0, 0, 0.12)',
-                                            }}
-                                        >
+                                        <Menu.Dropdown className="blog-reaction-dropdown">
                                             <Group gap={4} p={2} wrap="nowrap">
                                                 {REACTIONS.map((reaction) => (
-                                                    <Tooltip key={reaction.value} label={reaction.label} position="top" withArrow>
+                                                    <Tooltip key={reaction.value} label={reaction.label} position="top" withArrow zIndex={10000} withinPortal>
                                                         <ActionIcon
                                                             variant={userReaction === reaction.value ? 'light' : 'subtle'}
                                                             color={reaction.color}
@@ -1321,102 +1063,81 @@ const BlogCard = memo(({ blog }) => {
                                     </Menu>
 
                                     <Tooltip label="Comments" position="top" withArrow zIndex={10000} withinPortal>
-                                        <UnstyledButton
+                                        <button
+                                            type="button"
                                             onClick={toggleComments}
-                                            style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '7px',
-                                                padding: '6px 12px',
-                                                height: '36px',
-                                                borderRadius: '10px',
-                                                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                backgroundColor: commentsOpen
-                                                    ? (isDark ? 'rgba(51, 154, 240, 0.12)' : 'rgba(51, 154, 240, 0.08)')
-                                                    : (isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'),
-                                                color: commentsOpen ? 'var(--mantine-color-blue-5)' : 'var(--mantine-color-dimmed)',
-                                                border: commentsOpen
-                                                    ? `1px solid ${isDark ? 'rgba(51, 154, 240, 0.28)' : 'rgba(51, 154, 240, 0.22)'}`
-                                                    : `1px solid ${isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.05)'}`,
-                                                cursor: 'pointer',
-                                                userSelect: 'none',
-                                                WebkitTapHighlightColor: 'transparent',
-                                            }}
+                                            className={`blog-action-pill ${commentsOpen ? 'is-comments-open' : ''}`}
+                                            aria-label="View comments"
                                         >
-                                            <MessageCircle size={18} />
-                                            <Text size="sm" fw={600} style={{ lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                                                {commentsCount}
-                                            </Text>
-                                        </UnstyledButton>
-                                    </Tooltip>
-                                </Group>
-
-                                {/* Right: Utility & Author actions */}
-                                <Group gap={4} wrap="nowrap">
-                                    {user && (
-                                        <Tooltip label="Download as Image" position="top" withArrow zIndex={10000} withinPortal>
-                                            <ActionIcon
-                                                variant="subtle"
-                                                color="gray"
-                                                onClick={handleDownloadImage}
-                                                loading={downloading}
-                                                size={36}
-                                                radius="md"
+                                            <MessageCircle
+                                                size={17}
+                                                color={commentsOpen ? '#38bdf8' : 'currentColor'}
                                                 style={{
-                                                    color: 'var(--mantine-color-dimmed)',
-                                                    transition: 'all 0.2s ease',
+                                                    filter: commentsOpen ? 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.5))' : 'none',
+                                                    transition: 'all 0.2s ease'
                                                 }}
+                                            />
+                                            <span style={{ transition: 'color 0.2s ease' }}>{commentsCount}</span>
+                                        </button>
+                                    </Tooltip>
+                                </div>
+
+                                {/* Right: Blended Utility Dock */}
+                                <div className="blog-utility-dock">
+                                    {user && (
+                                        <Tooltip label="Download Quote Card" position="top" withArrow zIndex={10000} withinPortal>
+                                            <button
+                                                type="button"
+                                                className="blog-dock-btn download-btn"
+                                                onClick={handleDownloadImage}
+                                                disabled={downloading}
+                                                aria-label="Download Quote Card"
                                             >
-                                                <Download size={18} />
-                                            </ActionIcon>
+                                                <Download size={16} />
+                                            </button>
                                         </Tooltip>
                                     )}
 
                                     <Tooltip label="Share Link" position="top" withArrow zIndex={10000} withinPortal>
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="gray"
+                                        <button
+                                            type="button"
+                                            className="blog-dock-btn share-btn"
                                             onClick={handleShare}
-                                            size={36}
-                                            radius="md"
-                                            style={{
-                                                color: 'var(--mantine-color-dimmed)',
-                                                transition: 'all 0.2s ease',
-                                            }}
+                                            aria-label="Share Link"
                                         >
-                                            <Share2 size={18} />
-                                        </ActionIcon>
+                                            <Share2 size={16} />
+                                        </button>
                                     </Tooltip>
 
                                     {isAuthor && (
                                         <>
-                                            <Tooltip label="Edit post" position="top" withArrow zIndex={10000} withinPortal>
-                                                <ActionIcon
-                                                    variant="subtle"
-                                                    color="blue"
+                                            <div className="blog-dock-divider" />
+
+                                            <Tooltip label="Edit Post" position="top" withArrow zIndex={10000} withinPortal>
+                                                <button
+                                                    type="button"
+                                                    className="blog-dock-btn edit-btn"
                                                     onClick={() => setIsEditing(true)}
-                                                    size={36}
-                                                    radius="md"
+                                                    aria-label="Edit Post"
                                                 >
-                                                    <Edit size={18} />
-                                                </ActionIcon>
+                                                    <Edit size={16} />
+                                                </button>
                                             </Tooltip>
 
-                                            <Tooltip label="Delete post" position="top" withArrow zIndex={10000} withinPortal>
-                                                <ActionIcon
-                                                    variant="subtle"
-                                                    color="red"
+                                            <Tooltip label="Delete Post" position="top" withArrow zIndex={10000} withinPortal>
+                                                <button
+                                                    type="button"
+                                                    className="blog-dock-btn delete-btn"
                                                     onClick={handleDelete}
-                                                    size={36}
-                                                    radius="md"
+                                                    aria-label="Delete Post"
                                                 >
-                                                    <Trash2 size={18} />
-                                                </ActionIcon>
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </Tooltip>
                                         </>
                                     )}
-                                </Group>
-                            </Group>
+                                </div>
+                            </div>
 
                             <Collapse in={commentsOpen} className="no-export">
                                 <Stack mt="md" gap="md">
